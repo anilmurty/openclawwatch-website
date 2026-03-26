@@ -1,0 +1,1835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OpenClawWatch — Open-source agent observability</title>
+<meta name="description" content="Open-source, OTel-native observability for autonomous AI agents. Full telemetry, cost tracking, and safety alerts — on your machine, no backend required.">
+<meta property="og:title" content="OpenClawWatch — Open-source agent observability">
+<meta property="og:description" content="Observe every agent. Locally. Full OTel-native telemetry, cost tracking, and safety alerts for autonomous AI agents.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://opencla.watch/">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="OpenClawWatch — Open-source agent observability">
+<meta name="twitter:description" content="Observe every agent. Locally. Full OTel-native telemetry, cost tracking, and safety alerts for autonomous AI agents.">
+<link rel="canonical" href="https://opencla.watch/">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='5' fill='%233d8eff'/%3E%3Cpath d='M16 4v5M16 23v5M4 16h5M23 16h5' stroke='%233d8eff' stroke-width='2.5' stroke-linecap='round'/%3E%3Cpath d='M8.2 8.2l3.5 3.5M20.3 20.3l3.5 3.5M20.3 11.7l3.5-3.5M8.2 23.8l3.5-3.5' stroke='%233d8eff' stroke-width='2' stroke-linecap='round' opacity='0.6'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300;12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,500;1,400&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy: #070d1a;
+    --navy-2: #0d1627;
+    --navy-3: #111e35;
+    --navy-4: #162240;
+    --blue: #3d8eff;
+    --blue-dim: #2a6fd4;
+    --blue-glow: rgba(61,142,255,0.15);
+    --blue-line: rgba(61,142,255,0.25);
+    --white: #f5f8ff;
+    --white-dim: rgba(245,248,255,0.65);
+    --white-faint: rgba(245,248,255,0.35);
+    --white-ghost: rgba(245,248,255,0.08);
+    --green: #22d37a;
+    --amber: #f0a500;
+    --red: #ff5b5b;
+    --text-dark: #0f172a;
+    --text-mid: #334155;
+    --text-light: #64748b;
+    --border-light: #e2e8f0;
+    --bg-light: #f8faff;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'IBM Plex Sans', sans-serif;
+    background: var(--navy);
+    color: var(--white);
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  /* ─── NAV ─────────────────────────────────────────── */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 40px;
+    height: 60px;
+    background: rgba(7,13,26,0.85);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--blue-line);
+  }
+
+  .nav-logo {
+    display: flex; align-items: center; gap: 10px;
+    text-decoration: none;
+  }
+
+  .nav-logo-icon {
+    width: 28px; height: 28px;
+    border: 1.5px solid var(--blue);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .nav-logo-icon svg { width: 16px; height: 16px; }
+
+  .nav-logo-text {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--white);
+    letter-spacing: -0.02em;
+  }
+
+  .nav-logo-text span { color: var(--blue); }
+
+  .nav-links {
+    display: flex; align-items: center; gap: 28px;
+    list-style: none;
+  }
+
+  .nav-links a {
+    font-size: 14px;
+    color: var(--white-dim);
+    text-decoration: none;
+    font-weight: 400;
+    transition: color 0.15s;
+  }
+
+  .nav-links a:hover { color: var(--white); }
+
+  .nav-actions {
+    display: flex; align-items: center; gap: 12px;
+  }
+
+  .btn-ghost {
+    display: flex; align-items: center; gap: 6px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    color: var(--white-dim);
+    text-decoration: none;
+    padding: 6px 12px;
+    border: 1px solid rgba(245,248,255,0.15);
+    border-radius: 6px;
+    transition: all 0.15s;
+  }
+
+  .btn-ghost:hover { color: var(--white); border-color: rgba(245,248,255,0.35); }
+
+  .btn-ghost svg { width: 15px; height: 15px; }
+
+  .star-count {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--amber);
+    opacity: 0.9;
+  }
+
+  .btn-primary {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--navy);
+    background: var(--blue);
+    padding: 7px 16px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background 0.15s, transform 0.1s;
+  }
+
+  .btn-primary:hover { background: #5aa3ff; }
+  .btn-primary:active { transform: scale(0.98); }
+
+  /* ─── HERO ────────────────────────────────────────── */
+  .hero {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 100px 40px 80px;
+    overflow: hidden;
+  }
+
+  .hero-grid {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(61,142,255,0.07) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(61,142,255,0.07) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, black 20%, transparent 100%);
+  }
+
+  .hero-glow {
+    position: absolute;
+    top: -120px; left: 50%; transform: translateX(-50%);
+    width: 900px; height: 600px;
+    background: radial-gradient(ellipse at 50% 0%, rgba(61,142,255,0.18) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .hero-inner {
+    position: relative;
+    text-align: center;
+    max-width: 820px;
+  }
+
+  .hero-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--blue);
+    background: rgba(61,142,255,0.1);
+    border: 1px solid rgba(61,142,255,0.3);
+    border-radius: 20px;
+    padding: 5px 14px;
+    margin-bottom: 28px;
+    animation: fadeUp 0.6s ease both;
+  }
+
+  .hero-badge-dot {
+    width: 6px; height: 6px;
+    background: var(--blue);
+    border-radius: 50%;
+    animation: pulse 2s ease infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.75); }
+  }
+
+  .hero-title {
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-size: clamp(52px, 7vw, 88px);
+    font-weight: 800;
+    line-height: 0.95;
+    letter-spacing: -0.03em;
+    color: var(--white);
+    margin-bottom: 24px;
+    animation: fadeUp 0.6s ease 0.1s both;
+  }
+
+  .hero-title-accent { color: var(--blue); }
+
+  .hero-subtitle {
+    font-size: 18px;
+    font-weight: 400;
+    line-height: 1.6;
+    color: var(--white-dim);
+    max-width: 580px;
+    margin: 0 auto 36px;
+    animation: fadeUp 0.6s ease 0.2s both;
+  }
+
+  .hero-ctas {
+    display: flex; align-items: center; justify-content: center; gap: 12px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    animation: fadeUp 0.6s ease 0.3s both;
+  }
+
+  .cta-primary {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--navy);
+    background: var(--blue);
+    padding: 12px 24px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.15s;
+    box-shadow: 0 0 32px rgba(61,142,255,0.3);
+  }
+
+  .cta-primary:hover {
+    background: #5aa3ff;
+    box-shadow: 0 0 48px rgba(61,142,255,0.5);
+    transform: translateY(-1px);
+  }
+
+  .cta-secondary {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--white-dim);
+    padding: 11px 22px;
+    border: 1px solid rgba(245,248,255,0.2);
+    border-radius: 8px;
+    text-decoration: none;
+    transition: all 0.15s;
+  }
+
+  .cta-secondary:hover {
+    color: var(--white);
+    border-color: rgba(245,248,255,0.4);
+    background: var(--white-ghost);
+  }
+
+  .cta-secondary svg { width: 16px; height: 16px; }
+
+  .hero-meta {
+    display: flex; align-items: center; justify-content: center; gap: 24px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--white-faint);
+    margin-bottom: 64px;
+    animation: fadeUp 0.6s ease 0.35s both;
+    flex-wrap: wrap;
+  }
+
+  .hero-meta-item {
+    display: flex; align-items: center; gap: 6px;
+  }
+
+  .hero-meta-item svg { width: 13px; height: 13px; color: var(--blue); opacity: 0.8; }
+
+  /* ─── TERMINAL ────────────────────────────────────── */
+  .terminal-wrap {
+    width: 100%;
+    max-width: 720px;
+    margin: 0 auto;
+    animation: fadeUp 0.6s ease 0.45s both;
+  }
+
+  .terminal {
+    background: #080f1e;
+    border: 1px solid rgba(61,142,255,0.2);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow:
+      0 0 0 1px rgba(61,142,255,0.08),
+      0 40px 80px rgba(0,0,0,0.6),
+      0 0 80px rgba(61,142,255,0.1);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    line-height: 1.7;
+  }
+
+  .terminal-titlebar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px 16px;
+    background: rgba(61,142,255,0.05);
+    border-bottom: 1px solid rgba(61,142,255,0.12);
+  }
+
+  .dot { width: 11px; height: 11px; border-radius: 50%; }
+  .dot-r { background: #ff5f57; }
+  .dot-y { background: #ffbd2e; }
+  .dot-g { background: #28c840; }
+
+  .terminal-title {
+    flex: 1; text-align: center;
+    font-size: 12px;
+    color: rgba(245,248,255,0.3);
+    margin-left: -55px;
+  }
+
+  .terminal-body {
+    padding: 20px 24px;
+    min-height: 280px;
+    overflow: hidden;
+    text-align: left;
+  }
+
+  .tline { display: block; }
+  .tline-hidden { opacity: 0; }
+
+  .t-prompt { color: rgba(61,142,255,0.7); }
+  .t-cmd { color: #e8edf7; }
+  .t-pkg { color: #7cd4a3; }
+  .t-success { color: var(--green); }
+  .t-warn { color: var(--amber); }
+  .t-dim { color: rgba(245,248,255,0.35); }
+  .t-blue { color: var(--blue); }
+  .t-key { color: #a78bfa; }
+  .t-val { color: #93c5fd; }
+  .t-label { color: rgba(245,248,255,0.5); font-size: 11px; }
+
+  .cursor {
+    display: inline-block;
+    width: 7px; height: 13px;
+    background: var(--blue);
+    vertical-align: middle;
+    margin-left: 1px;
+    animation: blink 1s step-end infinite;
+  }
+
+  @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+  .step-tabs {
+    display: flex;
+    border-top: 1px solid rgba(61,142,255,0.12);
+  }
+
+  .step-tab {
+    flex: 1;
+    padding: 10px 4px;
+    text-align: center;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: rgba(245,248,255,0.3);
+    border: none;
+    background: none;
+    cursor: pointer;
+    border-right: 1px solid rgba(61,142,255,0.08);
+    transition: all 0.2s;
+    position: relative;
+  }
+
+  .step-tab:last-child { border-right: none; }
+
+  .step-tab.active {
+    color: var(--blue);
+    background: rgba(61,142,255,0.07);
+  }
+
+  .step-tab.active::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--blue);
+  }
+
+  .step-tab.done { color: var(--green); }
+  .step-tab.done::before { content: '✓ '; }
+
+  /* ─── FEATURES ────────────────────────────────────── */
+  .section-light {
+    background: #fff;
+    color: var(--text-dark);
+    padding: 100px 40px;
+  }
+
+  .section-dark {
+    background: var(--navy-2);
+    color: var(--white);
+    padding: 100px 40px;
+    position: relative;
+  }
+
+  .section-dark::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--blue-line), transparent);
+  }
+
+  .container {
+    max-width: 1080px;
+    margin: 0 auto;
+  }
+
+  .section-label {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--blue);
+    margin-bottom: 16px;
+  }
+
+  .section-label::before {
+    content: '';
+    display: block;
+    width: 16px; height: 1px;
+    background: var(--blue);
+  }
+
+  h2 {
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-size: clamp(32px, 4vw, 52px);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.025em;
+    margin-bottom: 16px;
+  }
+
+  .section-light h2 { color: var(--text-dark); }
+  .section-dark h2 { color: var(--white); }
+
+  .section-desc {
+    font-size: 17px;
+    line-height: 1.65;
+    max-width: 560px;
+    margin-bottom: 60px;
+  }
+
+  .section-light .section-desc { color: var(--text-mid); }
+  .section-dark .section-desc { color: var(--white-dim); }
+
+  /* Features grid */
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--border-light);
+    border: 1px solid var(--border-light);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+
+  .feature-card {
+    background: #fff;
+    padding: 32px 28px;
+    transition: background 0.15s;
+  }
+
+  .feature-card:hover { background: var(--bg-light); }
+
+  .feature-icon {
+    width: 40px; height: 40px;
+    border-radius: 8px;
+    background: rgba(61,142,255,0.08);
+    border: 1px solid rgba(61,142,255,0.2);
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 16px;
+  }
+
+  .feature-icon svg { width: 20px; height: 20px; color: var(--blue); }
+
+  .feature-title {
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text-dark);
+    margin-bottom: 8px;
+  }
+
+  .feature-desc {
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--text-light);
+  }
+
+  .feature-badge {
+    display: inline-block;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-top: 12px;
+  }
+
+  .badge-new { background: rgba(61,142,255,0.1); color: var(--blue); }
+  .badge-oss { background: rgba(34,211,122,0.1); color: var(--green); }
+
+  /* ─── INSTALL STRIP ───────────────────────────────── */
+  .install-strip {
+    background: var(--navy-3);
+    padding: 24px 40px;
+    border-top: 1px solid rgba(61,142,255,0.1);
+    border-bottom: 1px solid rgba(61,142,255,0.1);
+  }
+
+  .install-strip-inner {
+    max-width: 1080px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 40px;
+    flex-wrap: wrap;
+  }
+
+  .install-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--white-faint);
+    flex-shrink: 0;
+  }
+
+  .install-cmds {
+    display: flex; gap: 12px; flex-wrap: wrap; flex: 1;
+  }
+
+  .install-cmd {
+    display: flex; align-items: center; gap: 10px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    color: var(--white);
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 6px;
+    padding: 8px 14px;
+  }
+
+  .install-cmd-lang {
+    font-size: 11px;
+    color: rgba(245,248,255,0.35);
+    border-right: 1px solid rgba(255,255,255,0.08);
+    padding-right: 10px;
+  }
+
+  .install-cmd-code { color: #7cd4a3; }
+
+  .copy-btn {
+    background: none; border: none; cursor: pointer; padding: 0; margin-left: 4px;
+    color: rgba(245,248,255,0.3); transition: color 0.15s;
+  }
+  .copy-btn:hover { color: var(--white-dim); }
+  .copy-btn svg { width: 14px; height: 14px; }
+
+  /* ─── COMPARISON TABLE ────────────────────────────── */
+  .comp-table-wrap {
+    overflow-x: auto;
+    border-radius: 12px;
+    border: 1px solid rgba(61,142,255,0.15);
+  }
+
+  .comp-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+  }
+
+  .comp-table thead tr {
+    border-bottom: 1px solid rgba(61,142,255,0.15);
+  }
+
+  .comp-table th {
+    padding: 14px 16px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    text-align: center;
+    color: var(--white-faint);
+    background: var(--navy-3);
+    white-space: nowrap;
+  }
+
+  .comp-table th:first-child { text-align: left; }
+
+  .comp-table th.ocw-col {
+    color: var(--blue);
+    background: rgba(61,142,255,0.12);
+    border-left: 1px solid rgba(61,142,255,0.25);
+    border-right: 1px solid rgba(61,142,255,0.25);
+  }
+
+  .comp-table td {
+    padding: 12px 16px;
+    text-align: center;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    color: rgba(245,248,255,0.35);
+    white-space: nowrap;
+  }
+
+  .comp-table td:first-child {
+    text-align: left;
+    color: var(--white-dim);
+    font-size: 13px;
+  }
+
+  .comp-table td.ocw-col {
+    background: rgba(61,142,255,0.06);
+    border-left: 1px solid rgba(61,142,255,0.15);
+    border-right: 1px solid rgba(61,142,255,0.15);
+  }
+
+  .comp-table tr.section-row td {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(245,248,255,0.2);
+    background: rgba(255,255,255,0.02);
+    padding: 8px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+
+  .comp-table tr.section-row td.ocw-col {
+    background: rgba(61,142,255,0.05);
+  }
+
+  .comp-table td.feat-name {
+    font-size: 13px;
+  }
+
+  .comp-table td.feat-sub {
+    font-size: 11px;
+    color: rgba(245,248,255,0.3);
+    font-family: 'IBM Plex Mono', monospace;
+    display: block;
+    margin-top: 2px;
+  }
+
+  .yes { color: var(--green); font-size: 15px; }
+  .partial { color: var(--amber); font-size: 14px; font-family: 'IBM Plex Mono', monospace; }
+  .no { color: rgba(245,248,255,0.2); font-size: 16px; }
+  .cloud-only {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: rgba(245,248,255,0.25);
+    background: rgba(255,255,255,0.04);
+    border-radius: 3px;
+    padding: 2px 6px;
+  }
+
+  .comp-legend {
+    display: flex; gap: 24px; align-items: center;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--white-faint);
+    margin-top: 16px;
+    flex-wrap: wrap;
+  }
+
+  .comp-legend span { display: flex; align-items: center; gap: 6px; }
+
+  /* ─── INTEGRATIONS ────────────────────────────────── */
+  .integrations-row {
+    display: flex; align-items: center; justify-content: center;
+    gap: 0;
+    flex-wrap: wrap;
+    margin-top: 48px;
+  }
+
+  .integration-pill {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 20px;
+    border-right: 1px solid var(--border-light);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-mid);
+    transition: color 0.15s;
+  }
+
+  .integration-pill:last-child { border-right: none; }
+  .integration-pill:hover { color: var(--text-dark); }
+
+  .integration-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--blue);
+    opacity: 0.5;
+    flex-shrink: 0;
+  }
+
+  /* ─── WAITLIST ────────────────────────────────────── */
+  .waitlist-section {
+    background: var(--navy);
+    padding: 120px 40px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .waitlist-section::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--blue-line), transparent);
+  }
+
+  .waitlist-glow {
+    position: absolute;
+    bottom: -200px; left: 50%; transform: translateX(-50%);
+    width: 700px; height: 400px;
+    background: radial-gradient(ellipse at 50% 100%, rgba(61,142,255,0.15) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .waitlist-inner {
+    position: relative;
+    max-width: 540px;
+    margin: 0 auto;
+  }
+
+  .waitlist-eyebrow {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--blue);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+  }
+
+  .waitlist-title {
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-size: clamp(36px, 5vw, 56px);
+    font-weight: 800;
+    line-height: 1.0;
+    letter-spacing: -0.02em;
+    color: var(--white);
+    margin-bottom: 16px;
+  }
+
+  .waitlist-sub {
+    font-size: 16px;
+    color: var(--white-dim);
+    line-height: 1.6;
+    margin-bottom: 40px;
+  }
+
+  .waitlist-form {
+    display: flex; gap: 10px;
+    max-width: 440px;
+    margin: 0 auto 24px;
+  }
+
+  .waitlist-input {
+    flex: 1;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 14px;
+    color: var(--white);
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(61,142,255,0.25);
+    border-radius: 8px;
+    padding: 12px 16px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .waitlist-input::placeholder { color: rgba(245,248,255,0.25); }
+  .waitlist-input:focus { border-color: var(--blue); }
+
+  .waitlist-btn {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--navy);
+    background: var(--blue);
+    border: none;
+    border-radius: 8px;
+    padding: 12px 20px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s;
+    box-shadow: 0 0 24px rgba(61,142,255,0.25);
+  }
+
+  .waitlist-btn:hover {
+    background: #5aa3ff;
+    box-shadow: 0 0 40px rgba(61,142,255,0.4);
+  }
+
+  .waitlist-disclaimer {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--white-faint);
+    margin-top: 16px;
+  }
+
+  .waitlist-stats {
+    display: flex; align-items: center; justify-content: center; gap: 32px;
+    margin-top: 48px;
+    padding-top: 40px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    flex-wrap: wrap;
+  }
+
+  .stat { text-align: center; }
+
+  .stat-number {
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-size: 36px;
+    font-weight: 800;
+    color: var(--white);
+    letter-spacing: -0.02em;
+    display: block;
+  }
+
+  .stat-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--white-faint);
+    margin-top: 4px;
+  }
+
+  /* ─── FOOTER ──────────────────────────────────────── */
+  footer {
+    background: var(--navy-2);
+    border-top: 1px solid rgba(255,255,255,0.05);
+    padding: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 20px;
+  }
+
+  .footer-left {
+    display: flex; align-items: center; gap: 20px;
+  }
+
+  .footer-logo {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--white-dim);
+  }
+
+  .footer-logo span { color: var(--blue); }
+
+  .footer-meta {
+    display: flex; align-items: center; gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .footer-meta a, .footer-meta span {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--white-faint);
+    text-decoration: none;
+    transition: color 0.15s;
+  }
+
+  .footer-meta a:hover { color: var(--white-dim); }
+
+  .license-badge {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: rgba(61,142,255,0.1);
+    border: 1px solid rgba(61,142,255,0.2);
+    color: var(--blue);
+  }
+
+  .footer-right {
+    display: flex; align-items: center; gap: 16px;
+  }
+
+  .footer-right a {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--white-faint);
+    text-decoration: none;
+    transition: color 0.15s;
+  }
+
+  .footer-right a:hover { color: var(--white-dim); }
+
+  /* ─── ANIMATIONS ──────────────────────────────────── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes typeIn {
+    from { width: 0; }
+    to { width: 100%; }
+  }
+
+  .tline-animate {
+    overflow: hidden;
+    white-space: nowrap;
+    animation: typeIn 0.4s steps(40) forwards;
+  }
+
+  /* ─── PROBLEM SECTION ─────────────────────────────── */
+  .problem-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 60px;
+    align-items: start;
+  }
+
+  .problem-point {
+    display: flex; gap: 16px;
+    margin-bottom: 28px;
+  }
+
+  .problem-icon {
+    width: 32px; height: 32px; flex-shrink: 0;
+    border-radius: 6px;
+    background: rgba(255,91,91,0.08);
+    border: 1px solid rgba(255,91,91,0.2);
+    display: flex; align-items: center; justify-content: center;
+    margin-top: 2px;
+  }
+
+  .problem-icon svg { width: 15px; height: 15px; color: var(--red); }
+
+  .problem-text h4 {
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-dark);
+    margin-bottom: 5px;
+  }
+
+  .problem-text p {
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--text-light);
+  }
+
+  .solution-panel {
+    background: var(--bg-light);
+    border: 1px solid var(--border-light);
+    border-radius: 12px;
+    padding: 28px;
+  }
+
+  .solution-panel h3 {
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-dark);
+    margin-bottom: 20px;
+  }
+
+  .solution-item {
+    display: flex; align-items: flex-start; gap: 10px;
+    margin-bottom: 14px;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--text-mid);
+  }
+
+  .solution-item-check {
+    width: 18px; height: 18px; flex-shrink: 0;
+    border-radius: 50%;
+    background: rgba(61,142,255,0.1);
+    border: 1px solid rgba(61,142,255,0.3);
+    display: flex; align-items: center; justify-content: center;
+    margin-top: 1px;
+  }
+
+  .solution-item-check svg { width: 10px; height: 10px; color: var(--blue); }
+
+  /* ─── OSS BOUNDARY TABLE ──────────────────────────── */
+  .boundary-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+
+  .boundary-table thead th {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 12px 20px;
+    text-align: left;
+    color: var(--text-light);
+    border-bottom: 2px solid var(--border-light);
+  }
+
+  .boundary-table thead th.oss-col {
+    color: var(--blue);
+    background: rgba(61,142,255,0.04);
+    border-bottom-color: var(--blue);
+    border-left: 1px solid var(--border-light);
+    border-right: 1px solid var(--border-light);
+  }
+
+  .boundary-table thead th.saas-col {
+    color: #a855f7;
+    background: rgba(168,85,247,0.04);
+    border-bottom-color: #a855f7;
+  }
+
+  .boundary-table tbody td {
+    padding: 10px 20px;
+    border-bottom: 1px solid var(--border-light);
+    color: var(--text-mid);
+    font-size: 13.5px;
+  }
+
+  .boundary-table tbody td.oss-col {
+    background: rgba(61,142,255,0.03);
+    border-left: 1px solid var(--border-light);
+    border-right: 1px solid var(--border-light);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12.5px;
+    color: var(--blue);
+  }
+
+  .boundary-table tbody td.saas-col {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12.5px;
+    color: #a855f7;
+  }
+
+  .boundary-table tbody td.saas-col.na {
+    color: rgba(100,116,139,0.4);
+  }
+
+  .boundary-table tbody tr:last-child td { border-bottom: none; }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    nav { padding: 0 20px; }
+    .nav-links { display: none; }
+    .hero { padding: 90px 20px 60px; }
+    .section-light, .section-dark { padding: 70px 20px; }
+    .features-grid { grid-template-columns: 1fr; }
+    .problem-grid { grid-template-columns: 1fr; }
+    .install-strip { padding: 20px; }
+    footer { padding: 24px 20px; flex-direction: column; align-items: flex-start; }
+    .waitlist-form { flex-direction: column; }
+    .waitlist-btn { width: 100%; }
+  }
+
+  /* Success state */
+  .waitlist-success {
+    display: none;
+    text-align: center;
+    padding: 16px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 14px;
+    color: var(--green);
+    background: rgba(34,211,122,0.08);
+    border: 1px solid rgba(34,211,122,0.2);
+    border-radius: 8px;
+    max-width: 440px;
+    margin: 0 auto;
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="/" class="nav-logo">
+    <div class="nav-logo-icon">
+      <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="8" cy="8" r="2.5" fill="#3d8eff"/>
+        <path d="M8 2v2M8 12v2M2 8h2M12 8h2" stroke="#3d8eff" stroke-width="1.5" stroke-linecap="round"/>
+        <path d="M4.1 4.1l1.4 1.4M10.5 10.5l1.4 1.4M10.5 5.5l1.4-1.4M4.1 11.9l1.4-1.4" stroke="#3d8eff" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/>
+      </svg>
+    </div>
+    <span class="nav-logo-text">Open<span>Claw</span>Watch</span>
+  </a>
+
+  <ul class="nav-links">
+    <li><a href="#features">Features</a></li>
+    <li><a href="#install">Install</a></li>
+    <li><a href="#compare">Compare</a></li>
+    <li><a href="https://cla.watch" target="_blank" rel="noopener noreferrer">cla.watch ↗</a></li>
+    <li><a href="#">Docs</a></li>
+  </ul>
+
+  <div class="nav-actions">
+    <a href="#waitlist" class="btn-primary">Join waitlist</a>
+  </div>
+</nav>
+
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-grid"></div>
+  <div class="hero-glow"></div>
+
+  <div class="hero-inner">
+    <div class="hero-badge">
+      <div class="hero-badge-dot"></div>
+      MIT License · OTel GenAI SemConv · No signup required
+    </div>
+
+    <h1 class="hero-title">
+      Observe every<br>agent.<br><span class="hero-title-accent">Locally.</span>
+    </h1>
+
+    <p class="hero-subtitle">
+      Open-source, OTel-native observability for autonomous AI agents.
+      Full telemetry, cost tracking, and safety alerts — on your machine,
+      no backend required.
+    </p>
+
+    <div class="hero-ctas">
+      <a href="#waitlist" class="cta-primary">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1l2 5h5l-4 3 1.5 5L8 11l-4.5 3L5 9 1 6h5z" fill="currentColor" opacity="0.9"/></svg>
+        Join the waitlist
+      </a>
+      <a href="#" class="cta-secondary">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 12V5a2 2 0 012-2h10a2 2 0 012 2v7M1 12h14M5 15h6M8 12v3"/></svg>
+        Read the docs
+      </a>
+    </div>
+
+    <div class="hero-meta">
+      <span class="hero-meta-item">
+        <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="7" r="6"/><path d="M7 4v3.5l2 1.5"/></svg>
+        5 min setup
+      </span>
+      <span class="hero-meta-item">
+        <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="10" height="10" rx="2"/><path d="M5 7h4M7 5v4"/></svg>
+        Python + TypeScript
+      </span>
+      <span class="hero-meta-item">
+        <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M7 1l1.5 3.5L12 5l-2.5 2.5.5 3.5L7 9.5l-3 1.5.5-3.5L2 5l3.5-.5z"/></svg>
+        OTel SemConv compliant
+      </span>
+      <span class="hero-meta-item">
+        <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h10M2 7h10M2 10h6"/></svg>
+        Works with Grafana, Jaeger, Datadog
+      </span>
+    </div>
+
+    <!-- TERMINAL -->
+    <div class="terminal-wrap">
+      <div class="terminal">
+        <div class="terminal-titlebar">
+          <div class="dot dot-r"></div>
+          <div class="dot dot-y"></div>
+          <div class="dot dot-g"></div>
+          <span class="terminal-title">ocw — bash</span>
+        </div>
+        <div class="terminal-body" id="terminal-body">
+          <!-- populated by JS -->
+        </div>
+        <div class="step-tabs">
+          <button class="step-tab active" id="tab-0" onclick="showStep(0)">install</button>
+          <button class="step-tab" id="tab-1" onclick="showStep(1)">init</button>
+          <button class="step-tab" id="tab-2" onclick="showStep(2)">status</button>
+          <button class="step-tab" id="tab-3" onclick="showStep(3)">traces</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- INSTALL STRIP -->
+<div class="install-strip" id="install">
+  <div class="install-strip-inner">
+    <span class="install-label">quick install</span>
+    <div class="install-cmds">
+      <div class="install-cmd">
+        <span class="install-cmd-lang">pip</span>
+        <span class="install-cmd-code">pip install ocw</span>
+        <button class="copy-btn" onclick="copyText('pip install ocw', this)" title="Copy">
+          <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="4" width="8" height="8" rx="1.5"/><path d="M2 10V3a1 1 0 011-1h7"/></svg>
+        </button>
+      </div>
+      <div class="install-cmd">
+        <span class="install-cmd-lang">npm</span>
+        <span class="install-cmd-code">npm install @ocw/sdk</span>
+        <button class="copy-btn" onclick="copyText('npm install @ocw/sdk', this)" title="Copy">
+          <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="4" width="8" height="8" rx="1.5"/><path d="M2 10V3a1 1 0 011-1h7"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- PROBLEM / WHY -->
+<section class="section-light">
+  <div class="container">
+    <div class="problem-grid">
+      <div>
+        <div class="section-label">the problem</div>
+        <h2>Your agent ran.<br>But did it behave?</h2>
+        <p class="section-desc" style="margin-bottom: 32px;">
+          Every other observability tool is built for LLM developers. OpenClawWatch is built for people whose agents have real-world side effects.
+        </p>
+
+        <div class="problem-point">
+          <div class="problem-icon">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="7"/><path d="M8 5v3.5M8 11v.5"/></svg>
+          </div>
+          <div class="problem-text">
+            <h4>No visibility into what agents do while you sleep</h4>
+            <p>Agents running overnight have full access to email, files, and services. Without observability, you find out what happened when a customer complains.</p>
+          </div>
+        </div>
+
+        <div class="problem-point">
+          <div class="problem-icon">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 8l4 4 6-8"/></svg>
+          </div>
+          <div class="problem-text">
+            <h4>Silent cost blowouts</h4>
+            <p>An agent looping on a failing tool call can burn $40/hr. Without per-agent cost tracking, you get the bill at the end of the month.</p>
+          </div>
+        </div>
+
+        <div class="problem-point">
+          <div class="problem-icon">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 2l12 12M14 2L2 14"/></svg>
+          </div>
+          <div class="problem-text">
+            <h4>Every tool requires a SaaS account</h4>
+            <p>Behavioral drift detection, safety alerts, schema validation — they all require API keys, hosted backends, and credit cards. OpenClawWatch runs on your machine.</p>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="solution-panel">
+          <h3>What OpenClawWatch gives you</h3>
+
+          <div class="solution-item">
+            <div class="solution-item-check">
+              <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 5l2.5 2.5 3.5-4"/></svg>
+            </div>
+            <span>Full OTel-native telemetry — agent spans, tool calls, token metrics — conforming to GenAI SemConv, exportable to Grafana or Jaeger</span>
+          </div>
+          <div class="solution-item">
+            <div class="solution-item-check">
+              <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 5l2.5 2.5 3.5-4"/></svg>
+            </div>
+            <span>Real-time USD cost tracking per agent, per model, per task — with configurable daily budget alerts</span>
+          </div>
+          <div class="solution-item">
+            <div class="solution-item-check">
+              <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 5l2.5 2.5 3.5-4"/></svg>
+            </div>
+            <span>Sensitive action alerts — fires when your agent sends email, writes files, or submits forms, before the session ends</span>
+          </div>
+          <div class="solution-item">
+            <div class="solution-item-check">
+              <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 5l2.5 2.5 3.5-4"/></svg>
+            </div>
+            <span>Local behavioral drift detection — catches when agent behavior diverges from its baseline without any cloud dependency</span>
+          </div>
+          <div class="solution-item">
+            <div class="solution-item-check">
+              <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 5l2.5 2.5 3.5-4"/></svg>
+            </div>
+            <span>Full-featured CLI + local REST API — pipe to jq, grep, tail, or any tool you already use</span>
+          </div>
+          <div class="solution-item">
+            <div class="solution-item-check">
+              <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 5l2.5 2.5 3.5-4"/></svg>
+            </div>
+            <span>Works with OpenClaw, LangChain, CrewAI, AutoGen, OpenAI Assistants, or any custom agent</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- FEATURES -->
+<section class="section-light" id="features" style="padding-top: 20px; padding-bottom: 100px;">
+  <div class="container">
+    <div style="margin-bottom: 40px;">
+      <div class="section-label">features</div>
+      <h2>Everything a single developer needs.<br>Nothing they don't.</h2>
+    </div>
+
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="10" r="8"/><path d="M10 6v4l2.5 2.5"/></svg>
+        </div>
+        <div class="feature-title">OTel-native telemetry</div>
+        <p class="feature-desc">Full GenAI Semantic Conventions compliance from day one. Agent spans, tool calls, token metrics — exportable to Grafana, Jaeger, Datadog, or any OTel backend without transformation.</p>
+        <span class="feature-badge badge-oss">OTel SemConv v1.37+</span>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 17l4-8 4 4 3-6 3 10"/><path d="M3 17h14"/></svg>
+        </div>
+        <div class="feature-title">Token & cost tracking</div>
+        <p class="feature-desc">Real-time USD cost per LLM call, attributed to the agent and tool that triggered it. Configurable daily/session/per-agent budget alerts fire before you get the bill.</p>
+        <span class="feature-badge badge-oss">per-model pricing YAML</span>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 3l2 5h5l-4 3.5 1.5 5.5L10 14l-4.5 3 1.5-5.5L3 8h5z"/></svg>
+        </div>
+        <div class="feature-title">Autonomous agent safety alerts</div>
+        <p class="feature-desc">The only observability tool built for agents with real-world side effects. Configurable alerts fire on email sends, file writes, form submissions, and payment actions.</p>
+        <span class="feature-badge badge-new">unique to OpenClawWatch</span>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 10h4l3-7 4 14 3-7h3"/></svg>
+        </div>
+        <div class="feature-title">Local behavioral drift detection</div>
+        <p class="feature-desc">Deterministic, no-cloud drift detection. Automatically baselines token usage, tool call sequences, output schema, and session duration — alerts when agents deviate.</p>
+        <span class="feature-badge badge-new">no API key required</span>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="5" width="14" height="10" rx="2"/><path d="M7 9h6M7 12h4"/></svg>
+        </div>
+        <div class="feature-title">Output schema validation</div>
+        <p class="feature-desc">JSON Schema validation for tool outputs and agent responses. Declare schemas per-agent/tool in config, or use inference mode to auto-derive from observed sessions.</p>
+        <span class="feature-badge badge-oss">JSON Schema draft-07</span>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="14" height="14" rx="2"/><path d="M3 8h14M8 3v14"/></svg>
+        </div>
+        <div class="feature-title">CLI + local REST API</div>
+        <p class="feature-desc">A full-featured CLI (ocw status / traces / cost / drift) with JSON output on every command. Local API at localhost with Prometheus /metrics endpoint, OpenAPI spec included.</p>
+        <span class="feature-badge badge-oss">pipe-friendly · scriptable</span>
+      </div>
+    </div>
+
+    <!-- Integrations -->
+    <div style="margin-top: 56px;">
+      <p style="text-align: center; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 24px;">Works with every major agent runtime</p>
+      <div class="integrations-row">
+        <div class="integration-pill"><div class="integration-dot"></div>OpenClaw</div>
+        <div class="integration-pill"><div class="integration-dot"></div>LangChain</div>
+        <div class="integration-pill"><div class="integration-dot"></div>LangGraph</div>
+        <div class="integration-pill"><div class="integration-dot"></div>CrewAI</div>
+        <div class="integration-pill"><div class="integration-dot"></div>AutoGen</div>
+        <div class="integration-pill"><div class="integration-dot"></div>OpenAI Assistants</div>
+        <div class="integration-pill"><div class="integration-dot"></div>Anthropic Claude</div>
+        <div class="integration-pill" style="border-right: none;"><div class="integration-dot"></div>Custom agents</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- COMPARISON TABLE -->
+<section class="section-dark" id="compare">
+  <div class="container">
+    <div class="section-label" style="color: var(--blue);">comparison</div>
+    <h2>Everything monitoring tells you the agent ran.<br>OpenClawWatch tells you what it did.</h2>
+    <p class="section-desc">
+      The tools your team already uses are built for LLM developers. OpenClawWatch fills the gap they all leave open.
+    </p>
+
+    <div class="comp-table-wrap">
+      <table class="comp-table">
+        <thead>
+          <tr>
+            <th style="text-align: left; width: 28%;">Feature</th>
+            <th class="ocw-col">OCW OSS</th>
+            <th>Langfuse</th>
+            <th>LangSmith</th>
+            <th>Vex</th>
+            <th>Guardrails AI</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="section-row"><td colspan="6">Observability</td></tr>
+          <tr>
+            <td class="feat-name">OTel GenAI SemConv native<span class="comp-table td.feat-sub" style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:rgba(245,248,255,0.3);display:block;margin-top:2px;">compliant from day one</span></td>
+            <td class="ocw-col"><span class="yes">✓</span></td>
+            <td><span class="partial">~</span></td>
+            <td><span class="partial">~</span></td>
+            <td><span class="yes">✓</span></td>
+            <td><span class="no">—</span></td>
+          </tr>
+          <tr>
+            <td class="feat-name">LLM call tracing</td>
+            <td class="ocw-col"><span class="yes">✓</span></td>
+            <td><span class="yes">✓</span></td>
+            <td><span class="yes">✓</span></td>
+            <td><span class="yes">✓</span></td>
+            <td><span class="no">—</span></td>
+          </tr>
+          <tr>
+            <td class="feat-name">Token &amp; cost tracking</td>
+            <td class="ocw-col"><span class="yes">✓</span></td>
+            <td><span class="yes">✓</span></td>
+            <td><span class="yes">✓</span></td>
+            <td><span class="yes">✓</span></td>
+            <td><span class="no">—</span></td>
+          </tr>
+          <tr>
+            <td class="feat-name">Framework agnostic</td>
+            <td class="ocw-col"><span class="yes">✓</span></td>
+            <td><span class="yes">✓</span></td>
+            <td><span class="no">—</span></td>
+            <td><span class="yes">✓</span></td>
+            <td><span class="yes">✓</span></td>
+          </tr>
+
+          <tr class="section-row"><td colspan="6">Autonomous agent safety</td></tr>
+          <tr>
+            <td class="feat-name">Sensitive action alerts<span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:rgba(245,248,255,0.3);display:block;margin-top:2px;">email, file write, payment, form submit</span></td>
+            <td class="ocw-col"><span class="yes">✓</span></td>
+            <td><span class="no">—</span></td>
+            <td><span class="no">—</span></td>
+            <td><span class="no">—</span></td>
+            <td><span class="no">—</span></td>
+          </tr>
+          <tr>
+            <td class="feat-name">Cost budget alerts<span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:rgba(245,248,255,0.3);display:block;margin-top:2px;">daily / session / per-agent</span></td>
+            <td class="ocw-col"><span class="yes">✓</span></td>
+            <td><span class="no">—</span></td>
+            <td><span class="no">—</span></td>
+            <td><span class="no">—</span></td>
+            <td><span class="no">—</span></td>
+          </tr>
+          <tr>
+            <td class="feat-name">Retry loop detection</td>
+            <td class="ocw-col"><span class="yes">✓</span></td>
+            <td><span class="no">—</span></td>
+            <td><span class="no">—</span></td>
+            <td><span class="no">—</span></td>
+            <td><span class="no">—</span></td>
+          </tr>
+
+          <tr class="section-row"><td colspan="6">Runtime verification</td></tr>
+          <tr>
+            <td class="feat-name">Behavioral drift detection</td>
+            <td class="ocw-col"><span class="yes">✓</span></td>
+            <td><span class="no">—</span></td>
+            <td><span class="no">—</span></td>
+            <td><span class="cloud-only">API key</span></td>
+            <td><span class="no">—</span></td>
+          </tr>
+          <tr>
+            <td class="feat-name">Output schema validation</td>
+            <td class="ocw-col"><span class="yes">✓</span></td>
+            <td><span class="no">—</span></td>
+            <td><span class="no">—</span></td>
+            <td><span class="yes">✓</span></td>
+            <td><span class="yes">✓</span></td>
+          </tr>
+
+          <tr class="section-row"><td colspan="6">Developer experience</td></tr>
+          <tr>
+            <td class="feat-name">Fully local, no signup</td>
+            <td class="ocw-col"><span class="yes">✓</span></td>
+            <td><span class="yes">✓</span></td>
+            <td><span class="no">—</span></td>
+            <td><span class="no">—</span></td>
+            <td><span class="yes">✓</span></td>
+          </tr>
+          <tr>
+            <td class="feat-name">CLI interface</td>
+            <td class="ocw-col"><span class="yes">✓</span></td>
+            <td><span class="no">—</span></td>
+            <td><span class="no">—</span></td>
+            <td><span class="no">—</span></td>
+            <td><span class="no">—</span></td>
+          </tr>
+          <tr>
+            <td class="feat-name">OTLP export to any backend<span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:rgba(245,248,255,0.3);display:block;margin-top:2px;">Grafana, Jaeger, Datadog…</span></td>
+            <td class="ocw-col"><span class="yes">✓</span></td>
+            <td><span class="yes">✓</span></td>
+            <td><span class="no">—</span></td>
+            <td><span class="no">—</span></td>
+            <td><span class="no">—</span></td>
+          </tr>
+          <tr>
+            <td class="feat-name">Open source / self-hostable</td>
+            <td class="ocw-col"><span class="yes">✓</span></td>
+            <td><span class="yes">✓</span></td>
+            <td><span class="no">—</span></td>
+            <td><span class="yes">✓</span></td>
+            <td><span class="yes">✓</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="comp-legend">
+      <span><span class="yes">✓</span> Supported</span>
+      <span><span class="partial">~</span> Partial or roadmap</span>
+      <span><span class="no">—</span> Not available</span>
+      <span><span class="cloud-only">API key</span> Requires hosted service</span>
+    </div>
+  </div>
+</section>
+
+
+<!-- OSS / COMMERCIAL BOUNDARY -->
+<section class="section-light">
+  <div class="container">
+    <div class="section-label">oss boundary</div>
+    <h2>OSS is genuinely useful.<br>Commercial solves a different problem.</h2>
+    <p class="section-desc">
+      The commercial tier isn't a restriction — it's for teams. Multi-agent aggregation, dashboards, and SSO require cloud infrastructure that is out of scope for a local developer tool by design.
+    </p>
+
+    <div style="overflow-x: auto; border-radius: 12px; border: 1px solid var(--border-light);">
+      <table class="boundary-table">
+        <thead>
+          <tr>
+            <th style="width: 40%;">Capability</th>
+            <th class="oss-col">OpenClawWatch OSS</th>
+            <th class="saas-col">ClawWatch Commercial</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Telemetry collection</td><td class="oss-col">✓ All runtimes</td><td class="saas-col">✓ Via OSS layer</td></tr>
+          <tr><td>OTLP export (Grafana, Jaeger, etc.)</td><td class="oss-col">✓ Full export</td><td class="saas-col">✓ Plus hosted ingestion</td></tr>
+          <tr><td>Token &amp; cost tracking</td><td class="oss-col">✓ Single agent</td><td class="saas-col">✓ Multi-agent + org budgets</td></tr>
+          <tr><td>Local safety alerts</td><td class="oss-col">✓ stdout / webhook / file</td><td class="saas-col">✓ Plus cloud channels</td></tr>
+          <tr><td>Behavioral drift detection</td><td class="oss-col">✓ Deterministic, local</td><td class="saas-col">✓ Plus LLM-as-judge</td></tr>
+          <tr><td>Output schema validation</td><td class="oss-col">✓ JSON Schema</td><td class="saas-col">✓ Plus custom eval rules</td></tr>
+          <tr><td>CLI interface</td><td class="oss-col">✓ Full featured</td><td class="saas-col na">—</td></tr>
+          <tr><td>Local REST API</td><td class="oss-col">✓ localhost</td><td class="saas-col">✓ Cloud-hosted</td></tr>
+          <tr><td>Web dashboard &amp; charts</td><td class="oss-col" style="color:rgba(100,116,139,0.4);">— intentionally excluded</td><td class="saas-col">✓</td></tr>
+          <tr><td>Multi-agent aggregation</td><td class="oss-col" style="color:rgba(100,116,139,0.4);">— out of scope</td><td class="saas-col">✓</td></tr>
+          <tr><td>SSO / RBAC</td><td class="oss-col" style="color:rgba(100,116,139,0.4);">—</td><td class="saas-col">✓</td></tr>
+          <tr><td>LLM-as-judge evaluation</td><td class="oss-col" style="color:rgba(100,116,139,0.4);">—</td><td class="saas-col">✓</td></tr>
+          <tr><td>Hosted retention &amp; search</td><td class="oss-col" style="color:rgba(100,116,139,0.4);">—</td><td class="saas-col">✓</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p style="margin-top: 20px; font-size: 13px; color: var(--text-light); font-family: 'IBM Plex Mono', monospace;">
+      Want the commercial tier? → <a href="https://cla.watch" target="_blank" rel="noopener noreferrer" style="color: var(--blue);">cla.watch</a>
+    </p>
+  </div>
+</section>
+
+
+<!-- WAITLIST -->
+<section class="waitlist-section" id="waitlist">
+  <div class="waitlist-glow"></div>
+  <div class="waitlist-inner">
+    <p class="waitlist-eyebrow">Early access</p>
+    <h2 class="waitlist-title">Be first to run it.</h2>
+    <p class="waitlist-sub">
+      OpenClawWatch is in active development. Join the waitlist to get early access, shape the roadmap, and get notified when v0.1 ships.
+    </p>
+
+    <div class="waitlist-form" id="waitlist-form">
+      <input type="email" class="waitlist-input" id="waitlist-email" placeholder="you@example.com" />
+      <button class="waitlist-btn" onclick="joinWaitlist()">Join waitlist</button>
+    </div>
+    <div class="waitlist-success" id="waitlist-success">
+      ✓ You're on the list. We'll be in touch.
+    </div>
+    <p class="waitlist-disclaimer">No spam. Just a ping when we ship. Apache 2.0 / MIT licensed.</p>
+
+    <!-- stats hidden until launch -->
+    <!--
+      <div class="stat">
+        <span class="stat-number">0</span>
+        <div class="stat-label">GitHub stars</div>
+      </div>
+      <div class="stat">
+        <span class="stat-number">6</span>
+        <div class="stat-label">Agent runtimes supported</div>
+      </div>
+      <div class="stat">
+        <span class="stat-number">0</span>
+        <div class="stat-label">On the waitlist</div>
+      </div>
+      <div class="stat">
+        <span class="stat-number">0</span>
+        <div class="stat-label">Days to v0.1</div>
+      </div>
+    </div>
+    -->
+  </div>
+</section>
+
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-left">
+    <span class="footer-logo">Open<span>Claw</span>Watch</span>
+    <div class="footer-meta">
+      <span class="license-badge">MIT</span>
+      <span class="license-badge" style="border-color:rgba(34,211,122,0.3);color:var(--green);background:rgba(34,211,122,0.08);">Apache 2.0</span>
+      <span>opencla.watch</span>
+      <a href="https://cla.watch" target="_blank" rel="noopener noreferrer">cla.watch ↗</a>
+      <a href="#">Docs</a>
+    </div>
+  </div>
+  <div class="footer-right">
+    <a href="https://cla.watch" target="_blank" rel="noopener noreferrer" style="color: rgba(245,248,255,0.35); font-size: 12px; font-family: 'IBM Plex Mono', monospace;">
+      Part of the ClawWatch ecosystem
+    </a>
+  </div>
+</footer>
+
+
+<script>
+// ─── TERMINAL STEPS ────────────────────────────────────────────
+const steps = [
+  {
+    label: 'install',
+    lines: [
+      { txt: '$ pip install ocw', c: ['t-prompt','t-cmd'], delay: 0 },
+      { txt: 'Collecting ocw...', c: ['t-dim'], delay: 500 },
+      { txt: '  Downloading ocw-0.1.0-py3-none-any.whl', c: ['t-dim'], delay: 900 },
+      { txt: 'Successfully installed ocw-0.1.0', c: ['t-success'], delay: 1500 },
+      { txt: '', delay: 1800 },
+      { txt: '$ ocw --version', c: ['t-prompt','t-cmd'], delay: 2100 },
+      { txt: 'ocw 0.1.0 (python 3.12)', c: ['t-dim'], delay: 2500 },
+    ]
+  },
+  {
+    label: 'init',
+    lines: [
+      { txt: '$ ocw init --agent my-email-agent', c: ['t-prompt','t-cmd'], delay: 0 },
+      { txt: '✓ Created .ocw/config.yaml', c: ['t-success'], delay: 600 },
+      { txt: '✓ SQLite store at ~/.ocw/telemetry.db', c: ['t-success'], delay: 900 },
+      { txt: '✓ Prometheus endpoint on :9464/metrics', c: ['t-success'], delay: 1200 },
+      { txt: '', delay: 1400 },
+      { txt: '  agent_id:    my-email-agent', c: ['t-key','t-val'], delay: 1600 },
+      { txt: '  budget_usd:  5.00/day', c: ['t-key','t-val'], delay: 1800 },
+      { txt: '  alerts:      email.send, file.write [CRITICAL]', c: ['t-key','t-val'], delay: 2000 },
+    ]
+  },
+  {
+    label: 'status',
+    lines: [
+      { txt: '$ ocw status', c: ['t-prompt','t-cmd'], delay: 0 },
+      { txt: '', delay: 300 },
+      { txt: '● my-email-agent  active  (4m 23s)', c: ['t-success'], delay: 500 },
+      { txt: '', delay: 600 },
+      { txt: '  Cost today:    $0.034 / $5.00 limit', c: ['t-key','t-val'], delay: 800 },
+      { txt: '  Tokens:        12,447 in · 3,821 out', c: ['t-key','t-val'], delay: 1000 },
+      { txt: '  Tool calls:    47  (2 failed)', c: ['t-key','t-val'], delay: 1200 },
+      { txt: '', delay: 1400 },
+      { txt: '  ⚠ email.send → 3 times in last 10 min', c: ['t-warn'], delay: 1600 },
+      { txt: '  ✓ No retry loops detected', c: ['t-success'], delay: 1900 },
+      { txt: '  ✓ Schema valid on all tool outputs', c: ['t-success'], delay: 2100 },
+    ]
+  },
+  {
+    label: 'traces',
+    lines: [
+      { txt: '$ ocw traces --since 1h --limit 5', c: ['t-prompt','t-cmd'], delay: 0 },
+      { txt: '', delay: 400 },
+      { txt: '  TRACE ID       TYPE              DUR    COST   STATUS', c: ['t-label'], delay: 600 },
+      { txt: '  ─────────────────────────────────────────────────────', c: ['t-dim'], delay: 700 },
+      { txt: '  trace-a1b2c3   invoke_agent       1.2s  $0.008  ✓', c: ['t-val'], delay: 900 },
+      { txt: '  trace-d4e5f6   tool: send_email   0.3s   —      ⚠ flagged', c: ['t-warn'], delay: 1100 },
+      { txt: '  trace-g7h8i9   invoke_agent       0.9s  $0.006  ✓', c: ['t-val'], delay: 1300 },
+      { txt: '  trace-j1k2l3   tool: read_file    0.1s   —      ✓', c: ['t-val'], delay: 1500 },
+      { txt: '  trace-m4n5o6   invoke_agent       2.1s  $0.014  ✓', c: ['t-val'], delay: 1700 },
+    ]
+  }
+];
+
+let currentStep = 0;
+let activeAnimations = [];
+
+function clearAnimations() {
+  activeAnimations.forEach(id => clearTimeout(id));
+  activeAnimations = [];
+}
+
+function showStep(idx) {
+  clearAnimations();
+  currentStep = idx;
+
+  // Update tabs
+  document.querySelectorAll('.step-tab').forEach((tab, i) => {
+    tab.classList.remove('active', 'done');
+    if (i < idx) tab.classList.add('done');
+    if (i === idx) tab.classList.add('active');
+  });
+
+  const body = document.getElementById('terminal-body');
+  body.innerHTML = '';
+
+  const step = steps[idx];
+  step.lines.forEach((line, i) => {
+    const span = document.createElement('span');
+    span.className = 'tline tline-hidden';
+    span.innerHTML = renderLine(line);
+    body.appendChild(span);
+
+    const id = setTimeout(() => {
+      span.classList.remove('tline-hidden');
+    }, line.delay);
+    activeAnimations.push(id);
+  });
+
+  // Add cursor at end
+  const cursorId = setTimeout(() => {
+    const cursorSpan = document.createElement('span');
+    cursorSpan.className = 'tline';
+    cursorSpan.innerHTML = '<span class="t-prompt">$ </span><span class="cursor"></span>';
+    body.appendChild(cursorSpan);
+  }, (step.lines[step.lines.length - 1]?.delay || 0) + 400);
+  activeAnimations.push(cursorId);
+}
+
+function renderLine(line) {
+  if (!line.txt) return '&nbsp;';
+  let txt = line.txt;
+
+  // Color pairs: first class for prompt "$", second for rest
+  if (line.c && line.c.length === 2) {
+    const parts = txt.split(/^(\$\s?)/);
+    if (parts[1]) {
+      return `<span class="${line.c[0]}">${escHtml(parts[1])}</span><span class="${line.c[1]}">${escHtml(parts[2] || '')}</span>`;
+    }
+    return `<span class="${line.c[0]}">${escHtml(txt)}</span>`;
+  }
+
+  // Color key: value pairs
+  if (line.c && line.c[0] === 't-key') {
+    const m = txt.match(/^(\s+[\w_]+:?\s+?)(.+)$/);
+    if (m) {
+      return `<span class="t-key">${escHtml(m[1])}</span><span class="t-val">${escHtml(m[2])}</span>`;
+    }
+  }
+
+  if (line.c) {
+    return `<span class="${line.c[0]}">${escHtml(txt)}</span>`;
+  }
+  return escHtml(txt);
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// Auto-advance
+function autoAdvance() {
+  const step = steps[currentStep];
+  const lastDelay = (step.lines[step.lines.length - 1]?.delay || 0) + 2000;
+  const id = setTimeout(() => {
+    const next = (currentStep + 1) % steps.length;
+    showStep(next);
+    autoAdvance();
+  }, lastDelay);
+  activeAnimations.push(id);
+}
+
+// Init
+showStep(0);
+autoAdvance();
+
+// ─── COPY TO CLIPBOARD ─────────────────────────────────────────
+function copyText(text, btn) {
+  navigator.clipboard.writeText(text).then(() => {
+    const orig = btn.innerHTML;
+    btn.innerHTML = '<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 7l3 3 5-5"/></svg>';
+    btn.style.color = '#22d37a';
+    setTimeout(() => {
+      btn.innerHTML = orig;
+      btn.style.color = '';
+    }, 1500);
+  });
+}
+
+// ─── WAITLIST ──────────────────────────────────────────────────
+function joinWaitlist() {
+  const email = document.getElementById('waitlist-email').value.trim();
+  if (!email || !email.includes('@')) {
+    document.getElementById('waitlist-email').style.borderColor = '#ff5b5b';
+    setTimeout(() => {
+      document.getElementById('waitlist-email').style.borderColor = '';
+    }, 1500);
+    return;
+  }
+  document.getElementById('waitlist-form').style.display = 'none';
+  document.getElementById('waitlist-success').style.display = 'block';
+}
+
+// Allow Enter key
+document.getElementById('waitlist-email').addEventListener('keydown', e => {
+  if (e.key === 'Enter') joinWaitlist();
+});
+</script>
+
+</body>
+</html>
