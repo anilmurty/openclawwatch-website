@@ -1078,6 +1078,15 @@
     .waitlist-btn { width: 100%; }
   }
 
+  .waitlist-error {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    color: var(--red);
+    max-width: 440px;
+    margin: 8px auto 0;
+    min-height: 0;
+  }
+
   /* Success state */
   .waitlist-success {
     display: none;
@@ -1593,10 +1602,11 @@
       OpenClawWatch is in active development. Join the waitlist to get early access, shape the roadmap, and get notified when v0.1 ships.
     </p>
 
-    <div class="waitlist-form" id="waitlist-form">
-      <input type="email" class="waitlist-input" id="waitlist-email" placeholder="you@example.com" />
-      <button class="waitlist-btn" onclick="joinWaitlist()">Join waitlist</button>
-    </div>
+    <form class="waitlist-form" id="waitlist-form">
+      <input type="email" name="email" class="waitlist-input" id="waitlist-email" placeholder="you@example.com" required />
+      <button type="submit" class="waitlist-btn">Join waitlist</button>
+    </form>
+    <p class="waitlist-error" id="waitlist-error"></p>
     <div class="waitlist-success" id="waitlist-success">
       ✓ You're on the list. We'll be in touch.
     </div>
@@ -1812,22 +1822,40 @@ function copyText(text, btn) {
 }
 
 // ─── WAITLIST ──────────────────────────────────────────────────
-function joinWaitlist() {
-  const email = document.getElementById('waitlist-email').value.trim();
-  if (!email || !email.includes('@')) {
-    document.getElementById('waitlist-email').style.borderColor = '#ff5b5b';
-    setTimeout(() => {
-      document.getElementById('waitlist-email').style.borderColor = '';
-    }, 1500);
-    return;
-  }
-  document.getElementById('waitlist-form').style.display = 'none';
-  document.getElementById('waitlist-success').style.display = 'block';
-}
+const waitlistForm = document.getElementById('waitlist-form');
+const waitlistError = document.getElementById('waitlist-error');
+const waitlistSuccess = document.getElementById('waitlist-success');
 
-// Allow Enter key
-document.getElementById('waitlist-email').addEventListener('keydown', e => {
-  if (e.key === 'Enter') joinWaitlist();
+waitlistForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  waitlistError.textContent = '';
+
+  const email = waitlistForm.email.value.trim();
+  if (!email) return;
+
+  const btn = waitlistForm.querySelector('button');
+  btn.disabled = true;
+  btn.textContent = 'Sending...';
+
+  try {
+    const res = await fetch('/api/waitlist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || 'Something went wrong. Please try again.');
+    }
+
+    waitlistForm.style.display = 'none';
+    waitlistSuccess.style.display = 'block';
+  } catch (err) {
+    waitlistError.textContent = err.message;
+    btn.disabled = false;
+    btn.textContent = 'Join waitlist';
+  }
 });
 </script>
 
