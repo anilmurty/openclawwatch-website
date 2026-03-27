@@ -3,6 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-C3WCWQW0WR"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-C3WCWQW0WR');
+</script>
 <title>OpenClawWatch — Open-source agent observability</title>
 <meta name="description" content="Open-source, OTel-native observability for autonomous AI agents. Full telemetry, cost tracking, and safety alerts — on your machine, no backend required.">
 <meta property="og:title" content="OpenClawWatch — Open-source agent observability">
@@ -1133,7 +1142,7 @@
   </ul>
 
   <div class="nav-actions">
-    <a href="#waitlist" class="btn-primary">Join waitlist</a>
+    <a href="#waitlist" class="btn-primary" onclick="trackEvent('cta_click', 'conversion', 'join_waitlist_nav')">Join waitlist</a>
   </div>
 </nav>
 
@@ -1160,11 +1169,11 @@
     </p>
 
     <div class="hero-ctas">
-      <a href="#waitlist" class="cta-primary">
+      <a href="#waitlist" class="cta-primary" onclick="trackEvent('cta_click', 'conversion', 'join_waitlist_hero')">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1l2 5h5l-4 3 1.5 5L8 11l-4.5 3L5 9 1 6h5z" fill="currentColor" opacity="0.9"/></svg>
         Join the waitlist
       </a>
-      <a href="#" class="cta-secondary">
+      <a href="#" class="cta-secondary" onclick="trackEvent('cta_click', 'engagement', 'read_the_docs')">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 12V5a2 2 0 012-2h10a2 2 0 012 2v7M1 12h14M5 15h6M8 12v3"/></svg>
         Read the docs
       </a>
@@ -1733,6 +1742,8 @@ function clearAnimations() {
 function showStep(idx) {
   clearAnimations();
   currentStep = idx;
+  const tabNames = ['install', 'init', 'status', 'traces'];
+  trackEvent('terminal_tab', 'engagement', tabNames[idx]);
 
   // Update tabs
   document.querySelectorAll('.step-tab').forEach((tab, i) => {
@@ -1815,7 +1826,12 @@ showStep(0);
 autoAdvance();
 
 // ─── COPY TO CLIPBOARD ─────────────────────────────────────────
+function trackEvent(action, category, label) {
+  if (typeof gtag === 'function') gtag('event', action, { event_category: category, event_label: label });
+}
+
 function copyText(text, btn) {
+  trackEvent('copy_command', 'engagement', text);
   navigator.clipboard.writeText(text).then(() => {
     const orig = btn.innerHTML;
     btn.innerHTML = '<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 7l3 3 5-5"/></svg>';
@@ -1855,6 +1871,7 @@ waitlistForm.addEventListener('submit', async (e) => {
       throw new Error(data.error || 'Something went wrong. Please try again.');
     }
 
+    trackEvent('waitlist_signup', 'conversion', 'early_access');
     waitlistForm.style.display = 'none';
     waitlistSuccess.style.display = 'block';
   } catch (err) {
