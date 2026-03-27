@@ -9,7 +9,7 @@
 <meta property="og:description" content="Observe every agent. Locally. Full OTel-native telemetry, cost tracking, and safety alerts for autonomous AI agents.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://opencla.watch/">
-<meta property="og:image" content="https://opencla.watch/api/og">
+<meta property="og:image" content="https://opencla.watch/og-image.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:type" content="image/png">
@@ -17,7 +17,7 @@
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="OpenClawWatch — Open-source agent observability">
 <meta name="twitter:description" content="Observe every agent. Locally. Full OTel-native telemetry, cost tracking, and safety alerts for autonomous AI agents.">
-<meta name="twitter:image" content="https://opencla.watch/api/og">
+<meta name="twitter:image" content="https://opencla.watch/og-image.png">
 <link rel="canonical" href="https://opencla.watch/">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='5' fill='%233d8eff'/%3E%3Cpath d='M16 4v5M16 23v5M4 16h5M23 16h5' stroke='%233d8eff' stroke-width='2.5' stroke-linecap='round'/%3E%3Cpath d='M8.2 8.2l3.5 3.5M20.3 20.3l3.5 3.5M20.3 11.7l3.5-3.5M8.2 23.8l3.5-3.5' stroke='%233d8eff' stroke-width='2' stroke-linecap='round' opacity='0.6'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -345,7 +345,7 @@
 
   .terminal-body {
     padding: 20px 24px;
-    min-height: 280px;
+    height: 310px;
     overflow: hidden;
     text-align: left;
   }
@@ -1128,7 +1128,7 @@
     <li><a href="#features">Features</a></li>
     <li><a href="#install">Install</a></li>
     <li><a href="#compare">Compare</a></li>
-    <li><a href="https://cla.watch" target="_blank" rel="noopener noreferrer">cla.watch ↗</a></li>
+    <li><a href="#oss-boundary">ClawWatch</a></li>
     <li><a href="#">Docs</a></li>
   </ul>
 
@@ -1190,7 +1190,7 @@
     </div>
 
     <!-- TERMINAL -->
-    <div class="terminal-wrap">
+    <div class="terminal-wrap" id="install">
       <div class="terminal">
         <div class="terminal-titlebar">
           <div class="dot dot-r"></div>
@@ -1214,7 +1214,7 @@
 
 
 <!-- INSTALL STRIP -->
-<div class="install-strip" id="install">
+<div class="install-strip">
   <div class="install-strip-inner">
     <span class="install-label">quick install</span>
     <div class="install-cmds">
@@ -1556,7 +1556,7 @@
 
 
 <!-- OSS / COMMERCIAL BOUNDARY -->
-<section class="section-light">
+<section class="section-light" id="oss-boundary">
   <div class="container">
     <div class="section-label">oss boundary</div>
     <h2>OSS is genuinely useful.<br>Commercial solves a different problem.</h2>
