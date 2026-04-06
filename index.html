@@ -1697,15 +1697,15 @@ const steps = [
       { txt: 'Successfully installed openclawwatch-0.1.0', c: ['t-success'], delay: 1500 },
       { txt: '', delay: 1800 },
       { txt: '$ ocw --version', c: ['t-prompt','t-cmd'], delay: 2100 },
-      { txt: 'ocw 0.1.0 (python 3.12)', c: ['t-dim'], delay: 2500 },
+      { txt: 'ocw 0.1.0 (python 3.10+)', c: ['t-dim'], delay: 2500 },
     ]
   },
   {
     label: 'onboard',
     lines: [
       { txt: '$ ocw onboard --agent my-email-agent', c: ['t-prompt','t-cmd'], delay: 0 },
-      { txt: '✓ Created .ocw/config.yaml', c: ['t-success'], delay: 600 },
-      { txt: '✓ SQLite store at ~/.ocw/telemetry.db', c: ['t-success'], delay: 900 },
+      { txt: '✓ Created .ocw/config.toml', c: ['t-success'], delay: 600 },
+      { txt: '✓ DuckDB store at ~/.ocw/telemetry.duckdb', c: ['t-success'], delay: 900 },
       { txt: '✓ Prometheus endpoint on :9464/metrics', c: ['t-success'], delay: 1200 },
       { txt: '', delay: 1400 },
       { txt: '  agent_id:    my-email-agent', c: ['t-key','t-val'], delay: 1600 },
@@ -1756,7 +1756,7 @@ function clearAnimations() {
 function showStep(idx) {
   clearAnimations();
   currentStep = idx;
-  const tabNames = ['install', 'init', 'status', 'traces'];
+  const tabNames = ['install', 'onboard', 'status', 'traces'];
   trackEvent('terminal_tab', 'engagement', tabNames[idx]);
 
   // Update tabs
