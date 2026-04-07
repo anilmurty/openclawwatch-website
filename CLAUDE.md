@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-OpenClawWatch is an open-source, OTel-native observability tool for autonomous AI agents. This repo contains the **landing page** hosted at [opencla.watch](https://opencla.watch). The actual CLI tool is not in this repo yet.
+OpenClawWatch is an open-source, OTel-native observability tool for autonomous AI agents. This repo contains the **landing page** hosted at [opencla.watch](https://opencla.watch). The actual CLI tool is not in this repo yet. Sibling product: [cla.watch](https://cla.watch) (commercial tier — same product family, uses green accent instead of blue).
 
 ## Architecture
 
@@ -15,15 +15,16 @@ OpenClawWatch is an open-source, OTel-native observability tool for autonomous A
 
 ## Development
 
-No build or install step. Open `index.html` in a browser to preview. For the API function, deploy to Vercel or use `vercel dev` (requires Vercel CLI and `.env.local` with `RESEND_API_KEY` and `RESEND_AUDIENCE_ID`).
+No build, install, lint, or test step. Open `index.html` in a browser to preview. For the API function, deploy to Vercel or use `vercel dev` (requires Vercel CLI and `.env.local` with `RESEND_API_KEY` and `RESEND_AUDIENCE_ID`).
 
 ## Key Files
 
-- `index.html` — entire landing page (HTML, CSS, JS all inline). Large file (~1900 lines). Use line-targeted reads.
+- `index.html` — entire landing page (HTML, CSS, JS all inline). ~1900 lines. Use line-targeted reads.
 - `api/waitlist.js` — Vercel serverless function (POST `/api/waitlist`) that adds emails to a Resend audience. Requires env vars `RESEND_API_KEY` and `RESEND_AUDIENCE_ID`.
 - `vercel.json` — Vercel routing config (clean URLs, `/api/waitlist` rewrite)
 - `og-image.png` — Open Graph social preview image (1200×630)
-- `.claude/landing-page-design.md` — detailed design spec for the landing page
+- `icon.svg` — project icon for use in external repo READMEs
+- `.claude/landing-page-design.md` — detailed design spec for the landing page (fonts, colors, layout, copy)
 
 ## index.html Structure
 
@@ -43,3 +44,7 @@ When renaming a tab, update all three.
 CSS custom properties defined in `:root` of `index.html`:
 - Dark theme: `--navy`, `--blue`, `--green`, `--amber`, `--red`
 - Fonts: Bricolage Grotesque (headings), IBM Plex Sans (body), IBM Plex Mono (code/terminal)
+
+## SEO & Social
+
+The `<head>` contains Open Graph and Twitter Card meta tags. When changing the page title, description, or preview image, update all corresponding `og:*` and `twitter:*` meta tags as well as the `<title>` and `<meta name="description">`. The canonical URL is `https://opencla.watch/`. A `sitemap.xml` and `robots.txt` are present at the repo root.
