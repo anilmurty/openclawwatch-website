@@ -374,8 +374,8 @@
 
   .terminal-body {
     padding: 20px 24px;
-    height: 310px;
-    overflow: hidden;
+    min-height: 310px;
+    overflow-y: auto;
     text-align: left;
   }
 
@@ -1657,14 +1657,39 @@ const steps = [
   {
     label: 'onboard',
     lines: [
-      { txt: '$ ocw onboard --agent my-email-agent', c: ['t-prompt','t-cmd'], delay: 0 },
-      { txt: '✓ Created .ocw/config.toml', c: ['t-success'], delay: 600 },
-      { txt: '✓ DuckDB store at ~/.ocw/telemetry.duckdb', c: ['t-success'], delay: 900 },
-      { txt: '✓ Prometheus endpoint on :9464/metrics', c: ['t-success'], delay: 1200 },
-      { txt: '', delay: 1400 },
-      { txt: '  agent_id:    my-email-agent', c: ['t-key','t-val'], delay: 1600 },
-      { txt: '  budget_usd:  5.00/day', c: ['t-key','t-val'], delay: 1800 },
-      { txt: '  alerts:      email.send, file.write [CRITICAL]', c: ['t-key','t-val'], delay: 2000 },
+      { txt: '$ ocw onboard', c: ['t-prompt','t-cmd'], delay: 0 },
+      { txt: '', delay: 300 },
+      { txt: 'Setting up OpenClawWatch...', c: ['t-dim'], delay: 500 },
+      { txt: '', delay: 700 },
+      { txt: 'Daily budget in USD per agent (0 = no limit, default 5): 10', c: ['t-dim'], delay: 900 },
+      { txt: '', delay: 1100 },
+      { txt: '✓ Config written to .ocw/config.toml', c: ['t-success'], delay: 1300 },
+      { txt: '✓ Ingest secret generated: a82ea9f8...', c: ['t-success'], delay: 1500 },
+      { txt: '✓ Default daily budget: $10.00 per agent', c: ['t-success'], delay: 1700 },
+      { txt: '✓ Daemon installed at ~/Library/LaunchAgents/com.openclawwatch.serve.plist', c: ['t-success'], delay: 1900 },
+      { txt: '', delay: 2100 },
+      { txt: 'Next steps:', c: ['t-cmd'], delay: 2300 },
+      { txt: '', delay: 2400 },
+      { txt: '  1. Instrument your agent:', c: ['t-dim'], delay: 2500 },
+      { txt: '', delay: 2600 },
+      { txt: '     from ocw.sdk import watch', c: ['t-blue'], delay: 2700 },
+      { txt: '     from ocw.sdk.integrations.anthropic import patch_anthropic', c: ['t-blue'], delay: 2800 },
+      { txt: '', delay: 2900 },
+      { txt: '     patch_anthropic()', c: ['t-blue'], delay: 3000 },
+      { txt: '', delay: 3100 },
+      { txt: '     @watch(agent_id="my-agent")', c: ['t-blue'], delay: 3200 },
+      { txt: '     def run(task):', c: ['t-blue'], delay: 3300 },
+      { txt: '         ...', c: ['t-blue'], delay: 3400 },
+      { txt: '', delay: 3500 },
+      { txt: '  2. Run your agent — spans are recorded automatically', c: ['t-dim'], delay: 3600 },
+      { txt: '', delay: 3700 },
+      { txt: '  3. View telemetry:', c: ['t-dim'], delay: 3800 },
+      { txt: '     ocw status          # agent overview', c: ['t-val'], delay: 3900 },
+      { txt: '     ocw traces          # span history', c: ['t-val'], delay: 4000 },
+      { txt: '     ocw serve           # web UI at http://127.0.0.1:7391/', c: ['t-val'], delay: 4100 },
+      { txt: '', delay: 4200 },
+      { txt: '  To configure per-agent budgets, sensitive actions, or drift detection:', c: ['t-dim'], delay: 4300 },
+      { txt: '  Edit .ocw/config.toml — see github.com/Metabuilder-Labs/openclawwatch#conf', c: ['t-dim'], delay: 4400 },
     ]
   },
   {
