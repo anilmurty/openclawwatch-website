@@ -520,6 +520,8 @@
     overflow: hidden;
     text-align: left;
     max-width: 100%;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 
   .tline { display: block; }
@@ -554,6 +556,7 @@
 
   .step-tab {
     flex: 1;
+    min-width: 0;
     padding: 10px 4px;
     text-align: center;
     font-family: 'Geist Mono', monospace;
@@ -565,6 +568,9 @@
     border-right: 1px solid rgba(var(--accent-rgb),0.08);
     transition: all 0.2s;
     position: relative;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .step-tab:last-child { border-right: none; }
@@ -1147,6 +1153,9 @@
     footer { padding: 24px 20px; flex-direction: column; align-items: flex-start; }
     .connect-row { flex-direction: column; gap: 4px; }
     .connect-social { flex-wrap: wrap; }
+    .terminal { font-size: 11px; }
+    .terminal-body { padding: 14px 14px; height: 280px; }
+    .step-tab { font-size: 10px; padding: 9px 2px; letter-spacing: 0; }
   }
 </style>
 </head>

@@ -19,7 +19,7 @@ No build, install, lint, or test step. Open `index.html` in a browser to preview
 
 ## Key Files
 
-- `index.html` — entire landing page (HTML, CSS, JS all inline). ~1900 lines. Use line-targeted reads.
+- `index.html` — entire landing page (HTML, CSS, JS all inline). ~2000 lines. Use line-targeted reads.
 - `api/waitlist.js` — Vercel serverless function (POST `/api/waitlist`) that adds emails to a Resend audience. Requires env vars `RESEND_API_KEY` and `RESEND_AUDIENCE_ID`.
 - `vercel.json` — Vercel routing config (clean URLs, `/api/waitlist` rewrite)
 - `og-image.png` — Open Graph social preview image (1200×630)
@@ -28,7 +28,7 @@ No build, install, lint, or test step. Open `index.html` in a browser to preview
 
 ## index.html Structure
 
-The file is organized top-to-bottom as: `<style>` (~lines 35–1150) → `<body>` HTML sections (~lines 1150–1680) → `<script>` (~lines 1680–1900). Major HTML sections in order: hero (with terminal demo), "the problem", features, comparison table, waitlist CTA, footer.
+The file is organized top-to-bottom as: `<style>` (~lines 57–1151) → `<body>` HTML sections (~lines 1151–1730) → `<script>` (~lines 1731–2028). Major HTML sections in order: hero (with terminal demo), "the problem", features, comparison table, waitlist CTA, footer.
 
 ## Hero Terminal
 
