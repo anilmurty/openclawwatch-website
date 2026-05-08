@@ -394,24 +394,12 @@ footer.tj-footer .footer-right {
 
 /* Author card (bottom of post) */
 .author-card {
-  display: flex;
-  gap: 16px;
-  align-items: flex-start;
   margin-top: 48px;
   padding: 20px;
   border: 1px solid var(--blue-line);
   border-radius: 8px;
   background: var(--white-ghost);
 }
-.author-card-avatar {
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  object-fit: cover;
-  flex-shrink: 0;
-  background: var(--navy-2);
-}
-.author-card-body { flex: 1; min-width: 0; }
 .author-card-head { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: baseline; margin-bottom: 6px; }
 .author-card-name { color: var(--white); text-decoration: none; font-weight: 600; font-size: 15px; }
 .author-card-name:hover { color: var(--accent-blue); }

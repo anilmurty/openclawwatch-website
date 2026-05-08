@@ -34,20 +34,6 @@ export function organizationSchema() {
   };
 }
 
-export function softwareApplicationSchema() {
-  return {
-    '@context': 'https://schema.org',
-    '@type': 'SoftwareApplication',
-    name: 'TokenJam',
-    applicationCategory: 'DeveloperApplication',
-    operatingSystem: 'macOS, Linux',
-    offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
-    description:
-      'Open-source, OTel-native observability for autonomous AI agents. Local-first, multi-runtime.',
-    url: SITE,
-  };
-}
-
 export function breadcrumbSchema(items: Array<{ name: string; url: string }>) {
   return {
     '@context': 'https://schema.org',
@@ -82,6 +68,6 @@ export function personSchema(slug: string) {
     name: a.name,
     description: a.bio,
     jobTitle: a.role,
-    image: `${SITE}${a.avatar}`,
+    ...(a.link ? { url: a.link } : {}),
   };
 }
