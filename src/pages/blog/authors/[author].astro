@@ -1,0 +1,50 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import Schema from '@/components/Schema.astro';
+import { authors, type AuthorSlug } from '@/lib/authors';
+import { getPostsByAuthor, readingTimeMinutes } from '@/lib/blog';
+import { personSchema } from '@/lib/schema';
+
+export async function getStaticPaths() {
+  return Object.keys(authors).map((slug) => ({ params: { author: slug } }));
+}
+
+const { author: authorSlug } = Astro.params;
+const author = authors[authorSlug as AuthorSlug];
+const posts = await getPostsByAuthor(authorSlug!);
+const fmt = (d: Date) => d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+---
+<BaseLayout
+  title={`${author.name} — TokenJam`}
+  description={author.bio}
+>
+  <header class="blog-hero">
+    <h1>{author.name}</h1>
+    <p>{author.role}</p>
+    <p style="margin-top: 12px;">{author.bio}</p>
+  </header>
+
+  <h2 style="font-size: 14px; font-family: 'Geist Mono', monospace; text-transform: uppercase; letter-spacing: .08em; color: var(--white-faint); margin-bottom: 16px;">Posts</h2>
+
+  {posts.length === 0 ? (
+    <p style="color: var(--white-dim);">No posts yet.</p>
+  ) : (
+    <ul class="post-list">
+      {posts.map((post) => (
+        <li>
+          <a href={`/blog/${post.id}`} class="post-card">
+            <div class="post-meta">
+              <time>{fmt(post.data.publishDate)}</time>
+              <span>·</span>
+              <span>{readingTimeMinutes(post.body)} min read</span>
+            </div>
+            <h2>{post.data.title}</h2>
+            <p>{post.data.description}</p>
+          </a>
+        </li>
+      ))}
+    </ul>
+  )}
+
+  {personSchema(authorSlug!) && <Schema data={personSchema(authorSlug!)} />}
+</BaseLayout>

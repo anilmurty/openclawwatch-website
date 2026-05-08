@@ -1,0 +1,9 @@
+---
+interface Props {
+  type?: 'info' | 'warn' | 'tip';
+}
+const { type = 'info' } = Astro.props;
+---
+<aside class={`tj-callout tj-callout--${type}`}>
+  <slot />
+</aside>

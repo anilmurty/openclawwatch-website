@@ -1,0 +1,23 @@
+---
+import Schema from './Schema.astro';
+import { faqPageSchema } from '@/lib/schema';
+
+interface Item {
+  question: string;
+  answer: string;
+}
+interface Props {
+  items: Item[];
+  emitSchema?: boolean;
+}
+const { items, emitSchema = true } = Astro.props;
+---
+<dl class="tj-faq">
+  {items.map((item) => (
+    <>
+      <dt>{item.question}</dt>
+      <dd>{item.answer}</dd>
+    </>
+  ))}
+</dl>
+{emitSchema && <Schema data={faqPageSchema(items)} />}

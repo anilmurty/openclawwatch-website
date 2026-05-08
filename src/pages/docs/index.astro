@@ -1,0 +1,11 @@
+---
+import { getEntry, render } from 'astro:content';
+import DocsLayout from '@/layouts/DocsLayout.astro';
+
+const doc = await getEntry('docs', 'index');
+if (!doc) throw new Error('docs/index.mdx not found');
+const { Content } = await render(doc);
+---
+<DocsLayout doc={doc}>
+  <Content />
+</DocsLayout>

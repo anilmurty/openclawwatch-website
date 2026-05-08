@@ -1,0 +1,34 @@
+---
+interface Row {
+  feature: string;
+  values: (string | boolean)[];
+}
+interface Props {
+  tools: string[];
+  rows: Row[];
+  caption?: string;
+}
+const { tools, rows, caption } = Astro.props;
+function render(v: string | boolean) {
+  if (v === true) return '✓';
+  if (v === false) return '—';
+  return v;
+}
+---
+<table class="tj-compare">
+  {caption && <caption>{caption}</caption>}
+  <thead>
+    <tr>
+      <th scope="col">Feature</th>
+      {tools.map((t) => <th scope="col">{t}</th>)}
+    </tr>
+  </thead>
+  <tbody>
+    {rows.map((row) => (
+      <tr>
+        <th scope="row">{row.feature}</th>
+        {row.values.map((v) => <td>{render(v)}</td>)}
+      </tr>
+    ))}
+  </tbody>
+</table>

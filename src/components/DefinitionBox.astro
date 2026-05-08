@@ -1,0 +1,16 @@
+---
+import Schema from './Schema.astro';
+
+interface Props {
+  term: string;
+  emitSchema?: boolean;
+}
+const { term, emitSchema = true } = Astro.props;
+---
+<aside class="tj-defbox">
+  <h2>{term}</h2>
+  <slot />
+</aside>
+{emitSchema && (
+  <Schema data={{ '@context': 'https://schema.org', '@type': 'DefinedTerm', name: term }} />
+)}

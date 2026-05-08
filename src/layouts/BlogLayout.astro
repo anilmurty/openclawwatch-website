@@ -1,0 +1,83 @@
+---
+import BaseLayout from './BaseLayout.astro';
+import CopyForAI from '@/components/CopyForAI.astro';
+import Schema from '@/components/Schema.astro';
+import { getAuthor } from '@/lib/authors';
+import { articleSchema } from '@/lib/schema';
+import { readingTimeMinutes, relatedPosts, getPublishedPosts, type BlogPost } from '@/lib/blog';
+
+interface Props {
+  post: BlogPost;
+}
+const { post } = Astro.props;
+const author = getAuthor(post.data.author) ?? getAuthor('anil');
+const minutes = readingTimeMinutes(post.body);
+
+const all = await getPublishedPosts();
+const related = relatedPosts(post, all, 3);
+
+const dateOpts: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'short', day: 'numeric' };
+const fmt = (d: Date) => d.toLocaleDateString('en-US', dateOpts);
+
+const canonical = post.data.canonicalUrl;
+const imageUrl = post.data.image ?? '/og-image.png';
+---
+<BaseLayout
+  title={`${post.data.title} — TokenJam`}
+  description={post.data.description}
+  image={imageUrl}
+  type="article"
+  canonical={canonical}
+>
+  <article>
+    <header class="article-header">
+      <h1>{post.data.title}</h1>
+      <div class="article-byline">
+        {author && <a href={`/blog/authors/${author.slug}`}>{author.name}</a>}
+        <span>·</span>
+        <time datetime={post.data.publishDate.toISOString()}>{fmt(post.data.publishDate)}</time>
+        {post.data.lastUpdated && (
+          <>
+            <span>·</span>
+            <span>Updated {fmt(post.data.lastUpdated)}</span>
+          </>
+        )}
+        <span>·</span>
+        <span>{minutes} min read</span>
+        {post.data.pillar && (
+          <>
+            <span>·</span>
+            <span class="post-pillar">{post.data.pillar}</span>
+          </>
+        )}
+      </div>
+    </header>
+
+    <CopyForAI />
+
+    <div class="prose">
+      <slot />
+    </div>
+
+    {post.data.tags.length > 0 && (
+      <div class="chip-row" style="margin-top: 32px;">
+        {post.data.tags.map((tag) => (
+          <a href={`/blog/tags/${tag}`} class="chip">#{tag}</a>
+        ))}
+      </div>
+    )}
+
+    {related.length > 0 && (
+      <section class="related-posts">
+        <h3>Related</h3>
+        <ul>
+          {related.map((p) => (
+            <li><a href={`/blog/${p.id}`}>{p.data.title}</a></li>
+          ))}
+        </ul>
+      </section>
+    )}
+  </article>
+
+  <Schema data={articleSchema(post)} />
+</BaseLayout>

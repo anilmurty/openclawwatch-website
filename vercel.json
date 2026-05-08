@@ -1,7 +1,11 @@
 {
+  "framework": "astro",
+  "buildCommand": "pnpm build",
+  "outputDirectory": "dist",
   "cleanUrls": true,
   "trailingSlash": false,
   "rewrites": [
-    { "source": "/api/waitlist", "destination": "/api/waitlist.js" }
+    { "source": "/api/waitlist", "destination": "/api/waitlist.js" },
+    { "source": "/sitemap.xml", "destination": "/sitemap-index.xml" }
   ]
 }

@@ -1,0 +1,41 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { getPublishedPosts, readingTimeMinutes } from '@/lib/blog';
+import Schema from '@/components/Schema.astro';
+import { organizationSchema } from '@/lib/schema';
+
+const posts = await getPublishedPosts();
+const fmt = (d: Date) => d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+---
+<BaseLayout
+  title="Blog — TokenJam"
+  description="Notes from TokenJam on the agentic AI ecosystem: observability, evaluation, environments, gateways, memory, guardrails, and more."
+>
+  <header class="blog-hero">
+    <h1>Blog</h1>
+    <p>Researching the agentic AI ecosystem. Open-source, OTel-native, local-first.</p>
+  </header>
+
+  {posts.length === 0 ? (
+    <p style="color: var(--white-dim);">No posts yet. Check back soon.</p>
+  ) : (
+    <ul class="post-list">
+      {posts.map((post) => (
+        <li>
+          <a href={`/blog/${post.id}`} class="post-card">
+            <div class="post-meta">
+              <time datetime={post.data.publishDate.toISOString()}>{fmt(post.data.publishDate)}</time>
+              <span>·</span>
+              <span>{readingTimeMinutes(post.body)} min read</span>
+              {post.data.pillar && <><span>·</span><span class="post-pillar">{post.data.pillar}</span></>}
+            </div>
+            <h2>{post.data.title}</h2>
+            <p>{post.data.description}</p>
+          </a>
+        </li>
+      ))}
+    </ul>
+  )}
+
+  <Schema data={organizationSchema()} />
+</BaseLayout>
