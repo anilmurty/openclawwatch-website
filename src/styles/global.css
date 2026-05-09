@@ -158,8 +158,8 @@ nav.tj-nav {
 .nav-github:hover { color: var(--white); }
 
 @media (max-width: 640px) {
-  nav.tj-nav { padding: 0 20px; }
-  .nav-links { display: none; }
+  nav.tj-nav { padding: 0 16px; }
+  .nav-actions { display: none; }
 }
 
 /* ── Page shell ───────────────────────────────────── */
