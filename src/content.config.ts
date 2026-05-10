@@ -17,6 +17,7 @@ const blog = defineCollection({
         'evaluation',
         'environments',
         'gateways',
+        'infrastructure',
         'memory',
         'guardrails',
         'hitl',
