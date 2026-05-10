@@ -1,0 +1,32 @@
+---
+import { getDocsGrouped, docUrl, type DocsGroup } from '@/lib/docs';
+
+interface Props {
+  currentId: string;
+}
+const { currentId } = Astro.props;
+const groups: DocsGroup[] = await getDocsGrouped();
+---
+<nav class="docs-sidebar" aria-label="Docs navigation">
+  {groups.map((g) => (
+    <div class="docs-sidebar-group">
+      <h3 class="docs-sidebar-label">{g.label}</h3>
+      <ul>
+        {g.docs.map((d) => {
+          const active = d.id === currentId;
+          return (
+            <li>
+              <a
+                href={docUrl(d)}
+                class:list={['docs-sidebar-link', { 'is-active': active }]}
+                aria-current={active ? 'page' : undefined}
+              >
+                {d.data.title}
+              </a>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  ))}
+</nav>

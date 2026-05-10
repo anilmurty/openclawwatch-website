@@ -1,0 +1,88 @@
+---
+title: Alerts
+description: 13 alert types, 6 channels (ntfy, Discord, Telegram, webhook, stdout, log), per-agent overrides.
+section: cli-and-ui
+order: 4
+---
+
+TokenJam fires alerts when something noteworthy happens: your agent crosses a budget threshold, calls a sensitive tool, retries in a loop, or drifts from its baseline. Alerts are evaluated locally as spans land in DuckDB and dispatched to one or more channels.
+
+## Alert types
+
+| Type | Fires when |
+|---|---|
+| `sensitive_action` | A tool you marked as sensitive is invoked. |
+| `cost_budget_daily` | Daily cost crosses the limit. |
+| `cost_budget_session` | A single session crosses the per-session limit. |
+| `session_duration` | A session runs longer than a threshold. |
+| `retry_loop` | A tool is retried with the same arguments N+ times. |
+| `token_anomaly` | Token usage deviates from baseline by N+ standard deviations. |
+| `schema_violation` | A tool output fails JSON Schema validation. |
+| `drift_detected` | Statistical drift detected vs the agent's baseline. |
+| `failure_rate` | Tool error rate exceeds a threshold over a window. |
+| `network_egress_blocked` | NemoClaw sandbox blocked an outbound request. |
+| `filesystem_access_denied` | NemoClaw sandbox blocked a file operation. |
+| `syscall_denied` | NemoClaw sandbox blocked a syscall. |
+| `inference_rerouted` | NemoClaw rerouted inference to a different model. |
+
+## Channels
+
+Configure where alerts go. Multiple channels work simultaneously.
+
+```toml
+# ~/.config/tj/config.toml
+
+[[alerts.channels]]
+type = "ntfy"
+topic = "my-agent-alerts"   # push to your phone, free, no account
+
+[[alerts.channels]]
+type = "discord"
+webhook_url = "https://discord.com/api/webhooks/..."
+
+[[alerts.channels]]
+type = "telegram"
+bot_token = "..."
+chat_id   = "..."
+
+[[alerts.channels]]
+type = "webhook"
+url = "https://your-endpoint.com/alerts"
+
+[[alerts.channels]]
+type = "stdout"
+
+[[alerts.channels]]
+type = "log"
+path = "~/.config/tj/alerts.log"
+```
+
+## Cooldowns
+
+To avoid storms, each alert type has a cooldown:
+
+```toml
+[alerts.cooldowns]
+cost_budget_daily = "1h"
+retry_loop        = "5m"
+drift_detected    = "24h"
+```
+
+Alerts fire once per cooldown window per agent. Override per agent under `[agents.<id>.alerts.cooldowns]`.
+
+## Content stripping
+
+Alert payloads can include prompt/completion content. Strip them globally:
+
+```toml
+[alerts.content]
+include_prompts     = false
+include_completions = false
+include_tool_args   = false
+```
+
+When stripped, alerts contain only metadata: agent, model, cost, span ID, alert type, and severity. The full span is still available in DuckDB.
+
+## Acknowledgement
+
+Alerts persist in DuckDB with an `acknowledged_at` timestamp. Acknowledge from the CLI, web UI, or MCP server (`acknowledge_alert` tool). Acknowledged alerts stop firing for that cooldown window.

@@ -1,0 +1,170 @@
+---
+// Architecture diagram for /docs/architecture.
+// Pure HTML + CSS (no SVG, no Mermaid) so it adapts to light/dark theme
+// via the existing tokens and stays readable at any zoom.
+---
+<figure class="arch-diagram" aria-label="TokenJam architecture diagram">
+  <div class="arch-row arch-row-1">
+    <div class="arch-node arch-node-primary">Your agent</div>
+  </div>
+  <div class="arch-arrow">↓</div>
+
+  <div class="arch-row arch-row-3">
+    <div class="arch-node">
+      <div class="arch-node-title">Coding agents</div>
+      <div class="arch-node-sub">Claude Code · Codex</div>
+    </div>
+    <div class="arch-node">
+      <div class="arch-node-title">Python SDK</div>
+      <div class="arch-node-sub"><code>@watch</code> + <code>patch_*</code></div>
+    </div>
+    <div class="arch-node">
+      <div class="arch-node-title">TypeScript SDK</div>
+      <div class="arch-node-sub"><code>@tokenjam/sdk</code></div>
+    </div>
+  </div>
+  <div class="arch-arrow">↓</div>
+
+  <div class="arch-row arch-row-3">
+    <div class="arch-node arch-node-thin">OTLP export</div>
+    <div class="arch-node arch-node-thin"><code>TjSpanExporter</code></div>
+    <div class="arch-node arch-node-thin"><code>POST /api/v1/spans</code></div>
+  </div>
+  <div class="arch-arrow">↓</div>
+
+  <div class="arch-row arch-row-1">
+    <div class="arch-node arch-node-accent">
+      <div class="arch-node-title">IngestPipeline</div>
+      <div class="arch-node-sub">Sanitize · Session continuity · Extract</div>
+    </div>
+  </div>
+  <div class="arch-arrow">↓</div>
+
+  <div class="arch-row arch-row-3">
+    <div class="arch-node">
+      <div class="arch-node-title">CostEngine</div>
+      <div class="arch-node-sub"><code>pricing.toml</code></div>
+    </div>
+    <div class="arch-node">
+      <div class="arch-node-title">AlertEngine</div>
+      <div class="arch-node-sub">13 types · 6 channels</div>
+    </div>
+    <div class="arch-node">
+      <div class="arch-node-title">SchemaValidator</div>
+      <div class="arch-node-sub">JSON Schema + infer</div>
+    </div>
+  </div>
+  <div class="arch-arrow">↓</div>
+
+  <div class="arch-row arch-row-1">
+    <div class="arch-node arch-node-storage">
+      <div class="arch-node-title">DuckDB</div>
+      <div class="arch-node-sub">local · embedded</div>
+    </div>
+  </div>
+  <div class="arch-arrow">↓</div>
+
+  <div class="arch-row arch-row-4">
+    <div class="arch-node">
+      <div class="arch-node-title"><code>tj</code> CLI</div>
+    </div>
+    <div class="arch-node">
+      <div class="arch-node-title">REST API + Web UI</div>
+      <div class="arch-node-sub"><code>:7391</code></div>
+    </div>
+    <div class="arch-node">
+      <div class="arch-node-title">MCP Server</div>
+      <div class="arch-node-sub">13 tools</div>
+    </div>
+    <div class="arch-node">
+      <div class="arch-node-title">Prometheus</div>
+      <div class="arch-node-sub"><code>:7391/metrics</code></div>
+    </div>
+  </div>
+</figure>
+
+<style>
+  .arch-diagram {
+    margin: 24px 0 32px;
+    padding: 24px 16px;
+    border: 1px solid var(--blue-line);
+    border-radius: 10px;
+    background: var(--white-ghost);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+  }
+  .arch-row {
+    display: grid;
+    gap: 12px;
+    width: 100%;
+    max-width: 760px;
+  }
+  .arch-row-1 { grid-template-columns: 1fr; justify-items: center; }
+  .arch-row-1 .arch-node { max-width: 280px; }
+  .arch-row-3 { grid-template-columns: repeat(3, 1fr); }
+  .arch-row-4 { grid-template-columns: repeat(4, 1fr); }
+
+  .arch-node {
+    text-align: center;
+    padding: 12px 14px;
+    border: 1px solid rgba(var(--accent-rgb), 0.18);
+    border-radius: 8px;
+    background: var(--navy);
+    color: var(--white);
+    font-size: 13px;
+    line-height: 1.4;
+  }
+  .arch-node-title { font-weight: 600; font-size: 14px; }
+  .arch-node-sub {
+    color: var(--white-dim);
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    margin-top: 4px;
+  }
+  .arch-node-sub code,
+  .arch-node-title code {
+    background: transparent;
+    padding: 0;
+    font-size: inherit;
+  }
+  .arch-node-primary {
+    background: var(--blue);
+    color: var(--invert-fg);
+    font-weight: 600;
+    padding: 10px 18px;
+  }
+  .arch-node-thin {
+    padding: 8px 10px;
+    font-family: 'Geist Mono', monospace;
+    font-size: 12px;
+    color: var(--white-dim);
+  }
+  .arch-node-thin code {
+    background: transparent;
+    padding: 0;
+    font-size: inherit;
+    color: var(--white);
+  }
+  .arch-node-accent {
+    border-color: rgba(var(--accent-blue-rgb), 0.4);
+    box-shadow: 0 0 0 1px rgba(var(--accent-blue-rgb), 0.15) inset;
+  }
+  .arch-node-storage {
+    border-color: rgba(var(--green-rgb), 0.4);
+  }
+  .arch-arrow {
+    color: var(--white-faint);
+    font-size: 18px;
+    line-height: 1;
+    padding: 6px 0;
+    user-select: none;
+  }
+
+  @media (max-width: 720px) {
+    .arch-row-3,
+    .arch-row-4 { grid-template-columns: 1fr; }
+    .arch-row { max-width: 320px; }
+  }
+</style>

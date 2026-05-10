@@ -157,6 +157,25 @@ nav.tj-nav {
 }
 .nav-github:hover { color: var(--white); }
 
+/* Primary CTA — mirrors the landing page button so the nav matches across pages */
+.btn-primary {
+  font-family: 'Geist', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--navy);
+  background: var(--blue);
+  padding: 7px 16px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background .15s, transform .1s;
+  display: inline-flex;
+  align-items: center;
+}
+.btn-primary:hover { background: var(--blue-hover); }
+.btn-primary:active { transform: scale(0.98); }
+
 @media (max-width: 640px) {
   nav.tj-nav { padding: 0 16px; }
   .nav-actions { display: none; }
@@ -171,6 +190,93 @@ main.tj-main {
 }
 @media (max-width: 640px) {
   main.tj-main { padding: 96px 20px 56px; }
+}
+
+/* Docs pages use a wider container to fit the sidebar */
+main.tj-main:has(.docs-shell) { max-width: 1180px; }
+
+.docs-shell {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 56px;
+  align-items: start;
+}
+.docs-sidebar {
+  position: sticky;
+  top: 84px;
+  align-self: start;
+  max-height: calc(100vh - 100px);
+  overflow-y: auto;
+  padding-right: 8px;
+  font-size: 14px;
+}
+.docs-sidebar-group { margin-bottom: 24px; }
+.docs-sidebar-label {
+  font-family: 'Geist Mono', monospace;
+  font-size: 11px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--white-faint);
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+.docs-sidebar ul { list-style: none; padding: 0; margin: 0; }
+.docs-sidebar li { margin: 0; }
+.docs-sidebar-link {
+  display: block;
+  padding: 5px 10px;
+  margin-left: -10px;
+  color: var(--white-dim);
+  text-decoration: none;
+  border-radius: 4px;
+  border-left: 2px solid transparent;
+  transition: color .12s, background .12s, border-color .12s;
+}
+.docs-sidebar-link:hover { color: var(--white); background: var(--white-ghost); }
+.docs-sidebar-link.is-active {
+  color: var(--white);
+  border-left-color: var(--accent-blue);
+  background: var(--white-ghost);
+}
+
+.docs-article { min-width: 0; }
+.docs-lede { color: var(--white-dim); font-size: 17px; margin-top: 8px; }
+
+.docs-prevnext {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 56px;
+  padding-top: 32px;
+  border-top: 1px solid var(--blue-line);
+}
+.docs-prevnext-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  border: 1px solid var(--blue-line);
+  border-radius: 8px;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color .15s, background .15s;
+}
+.docs-prevnext-item:hover { border-color: rgba(var(--accent-rgb), 0.25); background: var(--white-ghost); }
+.docs-prevnext-item.is-next { align-items: flex-end; text-align: right; }
+.docs-prevnext-dir { font-family: 'Geist Mono', monospace; font-size: 12px; color: var(--white-faint); }
+.docs-prevnext-title { font-size: 15px; font-weight: 500; color: var(--white); }
+
+@media (max-width: 900px) {
+  main.tj-main:has(.docs-shell) { max-width: 820px; }
+  .docs-shell { grid-template-columns: 1fr; gap: 32px; }
+  .docs-sidebar {
+    position: static;
+    max-height: none;
+    border: 1px solid var(--blue-line);
+    border-radius: 8px;
+    padding: 16px;
+  }
+  .docs-prevnext { grid-template-columns: 1fr; }
 }
 
 /* ── Footer ───────────────────────────────────────── */

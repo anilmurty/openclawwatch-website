@@ -1,0 +1,109 @@
+---
+title: Claude Code & Codex
+description: Monitor every Claude Code and Codex session with two commands. No SDK, no code changes.
+section: getting-started
+order: 3
+---
+
+TokenJam ships first-class support for the two most-used coding agents: **Claude Code** and **OpenAI Codex**. Both work with zero code changes. `tj` listens on OTLP and the agent emits its own telemetry.
+
+## Claude Code
+
+Monitor every Claude Code session (costs, tool calls, API requests, errors) with two commands:
+
+```bash
+pip install "tokenjam[mcp]"
+tj onboard --claude-code
+# Restart Claude Code, then:
+tj status --agent claude-code-<project>
+```
+
+`tj onboard --claude-code` does everything in one shot:
+
+- Creates a shared config at `~/.config/tj/config.toml` (one config for all projects).
+- Writes OTLP exporter vars to `~/.claude/settings.json`.
+- Tags this project by writing `OTEL_RESOURCE_ATTRIBUTES` to `.claude/settings.json`.
+- Registers the MCP server globally (`claude mcp add --scope user tj -- tj mcp`).
+- Installs a background daemon (launchd on macOS, systemd on Linux).
+- Adds Docker harness-compatible OTLP env vars to `~/.zshrc`.
+
+**Claude Code must be restarted** after running `tj onboard --claude-code`.
+
+### Adding more projects
+
+Run once per project directory:
+
+```bash
+cd /path/to/other-project
+tj onboard --claude-code   # tags this project, no reinstall needed
+# Restart Claude Code
+```
+
+Each project gets its own agent ID (`claude-code-<repo-name>`), all sharing one server and one ingest secret.
+
+## MCP server
+
+The MCP server gives Claude Code direct access to your observability data inside the session. 13 tools available after restart:
+
+| Tool | What it does |
+|---|---|
+| `get_status` | Current agent state: tokens, cost, active alerts |
+| `get_budget_headroom` | Budget limit vs spend |
+| `list_active_sessions` | All running sessions across agents |
+| `list_agents` | All known agents with lifetime cost |
+| `get_cost_summary` | Cost breakdown by day / agent / model |
+| `list_alerts` | Alert history with severity filtering |
+| `list_traces` | Recent traces with cost and duration |
+| `get_trace` | Full span waterfall for a trace |
+| `get_tool_stats` | Tool call counts and average duration |
+| `get_drift_report` | Drift baseline vs latest session |
+| `acknowledge_alert` | Mark an alert as acknowledged |
+| `setup_project` | Configure a project for TokenJam telemetry |
+| `open_dashboard` | Open the web UI (starts `tj serve` if needed) |
+
+The MCP server opens DuckDB read-only, so there are no lock conflicts with `tj serve`.
+
+### Per-project tagging
+
+After installing globally, ask Claude Code:
+
+> "Set up TokenJam for this project"
+
+Claude calls `setup_project`, which writes `.claude/settings.json` with the right `OTEL_RESOURCE_ATTRIBUTES` for this project.
+
+## Codex
+
+Monitor every Codex session. Run once, globally:
+
+```bash
+pip install "tokenjam[mcp]"
+tj onboard --codex
+```
+
+`tj onboard --codex` is project-agnostic. It writes to `~/.codex/config.toml` (Codex's single global config), so you only run it once, not once per project. Codex hardcodes `service.name="codex_exec"` in its binary, so all sessions appear under the same agent ID regardless of which repo you're working in.
+
+`tj onboard --codex`:
+
+- Writes an `[otel]` block and `[mcp_servers.tj]` to `~/.codex/config.toml`.
+- Registers the MCP server so Codex can call TokenJam tools directly.
+- Installs the background daemon (launchd / systemd).
+
+**Codex must be restarted** after running `tj onboard --codex`.
+
+```bash
+tj status --agent codex_exec   # check it's working
+```
+
+The same 13 MCP tools available to Claude Code are available to Codex after restart.
+
+## Uninstalling
+
+```bash
+# Remove all TokenJam data, config, daemon, MCP registration, and env vars:
+tj uninstall --yes
+
+# Then remove the package:
+pip uninstall tokenjam -y
+```
+
+`tj uninstall` cleans up everything set by `tj onboard --claude-code`: daemon, MCP server, `~/.config/tj/`, OTLP env vars in `~/.claude/settings.json`, `OTEL_RESOURCE_ATTRIBUTES` in every onboarded project's `.claude/settings.json`, and the harness env block in `~/.zshrc`.

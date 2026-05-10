@@ -65,8 +65,8 @@ The pattern works because the reasoning traces make the LLM's decisions interpre
 An agent's core components are:
 
 - **The LLM (reasoning engine):** decides what action to take based on the goal and current state. The decision-making layer.
-- **Tools (action layer):** functions the agent can call — APIs, database queries, code execution, web searches, file operations. Tools are how the agent affects the world.
-- **Context and memory (state):** everything the agent knows — the original goal, conversation history, prior tool results, and any persistent state it needs. Without good memory management, agents hallucinate and repeat mistakes.
+- **Tools (action layer):** functions the agent can call: APIs, database queries, code execution, web searches, file operations. Tools are how the agent affects the world.
+- **Context and memory (state):** everything the agent knows: the original goal, conversation history, prior tool results, and any persistent state it needs. Without good memory management, agents hallucinate and repeat mistakes.
 - **Control loop (orchestration):** the code that runs the loop. It calls the LLM, parses the output for tool calls, executes them, and feeds results back. Modern frameworks (Anthropic's Claude SDK, LangChain, LlamaIndex) handle this. You can also implement it from scratch.
 
 ## Levels of autonomy
@@ -96,7 +96,7 @@ The most visible category, and the one most builders encounter first.
 
 ### Personal / general-purpose agents
 
-This category emerged sharply in 2026. These agents aren't tied to a single domain like coding — they bridge messaging, scheduling, search, and personal automation.
+This category emerged sharply in 2026. These agents aren't tied to a single domain like coding; they bridge messaging, scheduling, search, and personal automation.
 
 - **[OpenClaw](https://openclaw.ai/)** (Peter Steinberger, MIT-licensed): the breakout OSS agent of 2026. Local-first personal assistant running across WhatsApp, Telegram, Slack, Discord, iMessage, and 20+ other channels. At 369k+ GitHub stars, currently the most-starred GitHub repo in history; defines the personal-agent category.
 - **[Hermes Agent](https://hermes-agent.nousresearch.com/)** (Nous Research, MIT-licensed): open-source self-improving agent with persistent memory and skill learning. ~32k stars in two months. Built around the `agentskills.io` standard; differentiates by retaining what it learns across sessions.
@@ -166,7 +166,7 @@ A distinct emerging category: agents that control browsers or full desktops rath
 
 ## Further reading
 
-- [ReAct: Synergizing Reasoning and Acting in Language Models](https://arxiv.org/abs/2210.03629) — Yao et al., 2022 (ICLR 2023). The foundational paper introducing the ReAct pattern.
-- [Building Effective AI Agents](https://www.anthropic.com/engineering/building-effective-agents) — Anthropic's guide to architecture patterns, tool design, and implementation frameworks for single and multi-agent systems.
-- [Writing Effective Tools for AI Agents](https://www.anthropic.com/engineering/writing-tools-for-agents) — Anthropic's technical advice on tool design for agentic systems.
-- [Anthropic Cookbook: Patterns and Agents](https://github.com/anthropics/anthropic-cookbook) — reference implementations and code examples.
+- [ReAct: Synergizing Reasoning and Acting in Language Models](https://arxiv.org/abs/2210.03629). Yao et al., 2022 (ICLR 2023). The foundational paper introducing the ReAct pattern.
+- [Building Effective AI Agents](https://www.anthropic.com/engineering/building-effective-agents). Anthropic's guide to architecture patterns, tool design, and implementation frameworks for single and multi-agent systems.
+- [Writing Effective Tools for AI Agents](https://www.anthropic.com/engineering/writing-tools-for-agents). Anthropic's technical advice on tool design for agentic systems.
+- [Anthropic Cookbook: Patterns and Agents](https://github.com/anthropics/anthropic-cookbook). Reference implementations and code examples.

@@ -1,0 +1,39 @@
+---
+title: Web UI
+description: A local dashboard at http://127.0.0.1:7391 with status, traces, cost, alerts, budget, and drift views.
+section: cli-and-ui
+order: 2
+---
+
+`tj serve` starts a local dashboard at `http://127.0.0.1:7391/`.
+
+```bash
+tj serve
+```
+
+The web UI is a single Vite-built bundle served by the local REST API. No external dependencies, no cloud calls.
+
+## Views
+
+- **Status:** agent overview with cost, tokens, tool calls, and active alerts.
+- **Traces:** trace list with span waterfall visualization. Click any span to see its full attribute set.
+- **Cost:** breakdown by agent, model, day, or tool. Stacked and time-series views.
+- **Alerts:** alert history with severity filtering. Acknowledge alerts inline.
+- **Budget:** view and edit daily/session cost limits per agent. Changes are written to your config file.
+- **Drift:** behavioral drift report with Z-score analysis. Compares the latest session against a learned baseline.
+
+## Auto-polling
+
+The UI auto-refreshes every few seconds while a session is active. Disable from the settings menu if you'd rather refresh manually.
+
+## Sharing
+
+By default `tj serve` binds to `127.0.0.1` (loopback only). To make the dashboard accessible from another machine on your network:
+
+```bash
+tj serve --host 0.0.0.0
+```
+
+Authentication can be enabled in [Configuration](/docs/configuration). The ingest secret is separate from UI auth.
+
+No signup, no cloud. Runs entirely on your machine.

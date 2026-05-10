@@ -1,0 +1,59 @@
+---
+title: Export and integrate
+description: Forward spans to OTel backends, OpenEvals, JSON, CSV, and Prometheus.
+section: integrations
+order: 3
+---
+
+TokenJam stores everything locally, but it's not a black box. Every span can be exported to standard formats or forwarded to existing observability backends.
+
+## `tj export`
+
+```bash
+tj export --format otlp        # forward to Grafana, Datadog, any OTel backend
+tj export --format openevals   # openevals / agentevals trajectory evaluation
+tj export --format json        # NDJSON
+tj export --format csv
+```
+
+Each format reads from your DuckDB store and emits spans on stdout (or to a target endpoint when applicable).
+
+## Filtering
+
+Restrict the export to a window, agent, or session:
+
+```bash
+tj export --format json --since 7d --agent my-email-agent
+tj export --format otlp --session sess-a1b2c3
+tj export --format csv --until 2026-05-01
+```
+
+`--since` and `--until` accept ISO timestamps, `Nd`/`Nh`/`Nm` durations, or `now`.
+
+## Forwarding to OTel backends
+
+OTLP export is the path to Grafana Tempo, Honeycomb, Datadog, New Relic, or any OTel-compatible backend:
+
+```bash
+tj export --format otlp \
+  --endpoint https://otlp.grafana.net/v1/traces \
+  --header "Authorization=Bearer $GRAFANA_TOKEN"
+```
+
+Spans retain their full OTel GenAI SemConv attributes so downstream tools recognize them as agent telemetry.
+
+## Prometheus
+
+When `tj serve` is running, Prometheus-format metrics are exposed at:
+
+```
+http://127.0.0.1:7391/metrics
+```
+
+Counters and histograms cover request rate, cost per agent, token throughput, error rate, and alert counts. Point your Prometheus scraper at it as you would any other target.
+
+## REST API
+
+The same DuckDB store is exposed as a REST API at `:7391`. Endpoints mirror the CLI: `/api/v1/status`, `/api/v1/traces`, `/api/v1/cost`, `/api/v1/alerts`, etc. All require the ingest secret as a bearer token.
+
+The OpenAPI schema is served at `/api/v1/openapi.json` when the server is running.

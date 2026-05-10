@@ -1,17 +1,28 @@
 ---
-title: Documentation
-description: TokenJam documentation. Currently hosted in the GitHub repo README — full docs site coming soon.
-order: 0
+title: Introduction
+description: TokenJam is the open-source observability tool for autonomous AI agents. Local-first, OTel-native, no signup.
+section: getting-started
+order: 1
 ---
 
-# Documentation
+Your agent sends emails, writes files, calls APIs, and spends your money, all while you're away. Most observability tools were built for LLM developers building chat products. TokenJam was built for **agents with real-world consequences**: real-time cost tracking, safety alerts, behavioral drift detection, all running locally on your machine. **No cloud. No signup. No surprises.**
 
-Full TokenJam documentation lives in the [GitHub repository](https://github.com/metabuilder-labs/tokenjam) for now. A dedicated docs site will be hosted here as TokenJam's feature set grows.
+## What you get
 
-In the meantime:
+**Real-time cost tracking.** Every LLM call is priced as it happens, by agent, model, session, and tool. Budget alerts fire before you hit the limit, not after.
 
-- **Quickstart:** see the [README](https://github.com/metabuilder-labs/tokenjam#readme)
-- **CLI reference:** run `tj --help`
-- **Examples:** [examples folder in the repo](https://github.com/metabuilder-labs/tokenjam/tree/main/examples)
+**Safety alerts.** Configure any tool call as a sensitive action (`send_email`, `delete_file`, `submit_form`) and get notified instantly via ntfy, Discord, Telegram, webhook, or stdout.
 
-For questions, open an issue on GitHub or join the conversation in [Discussions](https://github.com/metabuilder-labs/tokenjam/discussions).
+**Behavioral drift detection.** `tj` builds a statistical baseline from your agent's real behavior and alerts when something deviates: a prompt tweak, a model update, a dependency bump. No LLM required.
+
+**Tool output validation.** Declare a JSON Schema for your tools or let `tj` infer one automatically. Schema violations are caught the moment they occur.
+
+**100% local.** DuckDB. Local REST API. No cloud backend. No API key for TokenJam itself. Your telemetry never leaves your machine unless you explicitly export it.
+
+## Install
+
+```bash
+pip install tokenjam
+```
+
+Or pick your install path on the [Quickstart](/docs/quickstart).

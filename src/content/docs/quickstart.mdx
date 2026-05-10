@@ -1,0 +1,97 @@
+---
+title: Quickstart
+description: Four ways to install TokenJam. Pick the one that fits your agent.
+section: getting-started
+order: 2
+---
+
+TokenJam works four ways. Pick the path that matches what you're running.
+
+## Coding agents: zero code
+
+For **Claude Code**, **Codex**, and any agent that already emits OpenTelemetry. No SDK, no code changes.
+
+```bash
+pip install "tokenjam[mcp]"
+tj onboard --claude-code    # or: tj onboard --codex
+# Restart your coding agent
+```
+
+Every session, API call, tool use, and error is now a tracked span with cost and alert evaluation. The MCP server gives your coding agent 13 tools to query its own telemetry mid-session. Just ask "how much have I spent today?" or "are there any active alerts?"
+
+Full guide: [Claude Code & Codex](/docs/claude-code).
+
+## Python SDK
+
+For any Python agent: Anthropic, OpenAI, Gemini, Bedrock, LangChain, CrewAI, and [10+ more frameworks](/docs/frameworks).
+
+```bash
+pip install tokenjam
+tj onboard    # creates config, generates ingest secret
+tj doctor     # verify your setup
+```
+
+```python
+from tokenjam.sdk import watch
+from tokenjam.sdk.integrations.anthropic import patch_anthropic
+
+patch_anthropic()    # auto-intercepts all Anthropic API calls
+
+@watch(agent_id="my-agent")
+def run(task: str) -> str:
+    # your agent code, nothing else to change
+    ...
+```
+
+One-line patches exist for every major provider and framework. See [Python SDK](/docs/python-sdk) for the full list.
+
+## TypeScript SDK
+
+For any Node.js / TypeScript agent. Sends spans to `tj serve` over HTTP.
+
+```bash
+npm install @tokenjam/sdk
+```
+
+```typescript
+import { TjClient, SpanBuilder } from "@tokenjam/sdk";
+
+const client = new TjClient({
+  baseUrl:      "http://127.0.0.1:7391",
+  ingestSecret: process.env.TJ_INGEST_SECRET ?? "",
+});
+
+const span = new SpanBuilder("invoke_agent")
+  .agentId("my-ts-agent")
+  .model("gpt-4o-mini")
+  .provider("openai")
+  .inputTokens(450)
+  .outputTokens(120)
+  .build();
+
+await client.send([span]);
+```
+
+Full guide: [TypeScript SDK](/docs/typescript-sdk).
+
+## Any OTel-compatible agent
+
+Already emitting OpenTelemetry? Point your OTLP exporter at `tj serve`. No SDK needed.
+
+```bash
+tj serve &
+export OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:7391
+# run your agent as usual
+```
+
+| Framework | OTel support |
+|---|---|
+| Claude Code | Built-in: `tj onboard --claude-code` |
+| OpenClaw | Built-in (`diagnostics-otel` plugin) |
+| LlamaIndex | `opentelemetry-instrumentation-llama-index` |
+| OpenAI Agents SDK | Built-in |
+| Google ADK | Built-in |
+| Strands Agent SDK (AWS) | Built-in |
+| Haystack | Built-in |
+| Pydantic AI | Built-in |
+| Semantic Kernel | Built-in |

@@ -2,7 +2,9 @@
 import BaseLayout from './BaseLayout.astro';
 import CopyForAI from '@/components/CopyForAI.astro';
 import Schema from '@/components/Schema.astro';
+import DocsSidebar from '@/components/DocsSidebar.astro';
 import { breadcrumbSchema } from '@/lib/schema';
+import { docUrl, getPrevNext } from '@/lib/docs';
 import type { CollectionEntry } from 'astro:content';
 
 interface Props {
@@ -14,26 +16,49 @@ const SITE = 'https://tokenjam.dev';
 const crumbs = [
   { name: 'Home', url: SITE },
   { name: 'Docs', url: `${SITE}/docs` },
-  { name: doc.data.title, url: `${SITE}/docs/${doc.id}` },
+  { name: doc.data.title, url: `${SITE}${docUrl(doc)}` },
 ];
+
+const { prev, next } = await getPrevNext(doc.id);
 ---
 <BaseLayout
   title={`${doc.data.title} — TokenJam Docs`}
   description={doc.data.description}
 >
-  <article>
-    <header class="article-header">
-      <h1>{doc.data.title}</h1>
-      <div class="article-byline">
+  <div class="docs-shell">
+    <DocsSidebar currentId={doc.id} />
+    <article class="docs-article">
+      <header class="article-header">
+        <h1>{doc.data.title}</h1>
+        {doc.data.description && <p class="docs-lede">{doc.data.description}</p>}
         {doc.data.lastUpdated && (
-          <span>Updated {doc.data.lastUpdated.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</span>
+          <div class="article-byline">
+            <span>Updated {doc.data.lastUpdated.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</span>
+          </div>
         )}
+      </header>
+      <CopyForAI />
+      <div class="prose">
+        <slot />
       </div>
-    </header>
-    <CopyForAI />
-    <div class="prose">
-      <slot />
-    </div>
-  </article>
+
+      {(prev || next) && (
+        <nav class="docs-prevnext" aria-label="Doc navigation">
+          {prev ? (
+            <a class="docs-prevnext-item is-prev" href={docUrl(prev)}>
+              <span class="docs-prevnext-dir">← Previous</span>
+              <span class="docs-prevnext-title">{prev.data.title}</span>
+            </a>
+          ) : <span />}
+          {next ? (
+            <a class="docs-prevnext-item is-next" href={docUrl(next)}>
+              <span class="docs-prevnext-dir">Next →</span>
+              <span class="docs-prevnext-title">{next.data.title}</span>
+            </a>
+          ) : <span />}
+        </nav>
+      )}
+    </article>
+  </div>
   <Schema data={breadcrumbSchema(crumbs)} />
 </BaseLayout>

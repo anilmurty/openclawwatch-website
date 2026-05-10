@@ -1,0 +1,39 @@
+---
+title: Roadmap
+description: What's shipped, what's next, and what's open for contribution.
+section: reference
+order: 4
+---
+
+TokenJam ships in small, frequent releases. This page tracks what's done and what's next. The canonical source is the OSS repo issue tracker; this page summarizes.
+
+## Shipped
+
+- `tj serve` background daemon (launchd / systemd)
+- Web UI with auto-polling (status, traces, cost, alerts, budget, drift)
+- LiteLLM provider patch (100+ providers)
+- `tj stop` and `tj uninstall`
+- Claude Code integration (`tj onboard --claude-code`)
+- Codex integration (`tj onboard --codex`)
+- OpenClaw integration (zero-code via `diagnostics-otel` plugin)
+- NemoClaw sandbox observer (WebSocket gateway events)
+- OTLP log-to-span pipeline (Claude Code log events)
+- `tj budget` CLI, API, and web UI
+- `tj drift` with Z-score reporting
+- Full pipeline wiring (alerts, schema, drift in `tj serve`)
+- MCP server: 13 tools for Claude Code and Codex
+
+## Up next
+
+- `tj watch`: live tail mode for spans
+- `tj replay`: replay captured sessions against new model versions
+- TypeScript framework patches (LangChain JS, OpenAI Agents SDK)
+- Vercel AI SDK integration (TypeScript)
+- Mastra integration (TypeScript)
+- Azure AI Agent Service integration
+- Docker image
+- GitHub Actions for CI drift/cost checks
+
+## Contributing
+
+PRs welcome. If you're adding a framework integration, open an issue first so we can align on shape and naming. See [AGENTS.md](https://github.com/metabuilder-labs/tokenjam/blob/main/AGENTS.md) in the OSS repo for codebase conventions.

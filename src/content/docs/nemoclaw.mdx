@@ -1,0 +1,53 @@
+---
+title: NemoClaw integration
+description: Connect to the OpenShell Gateway WebSocket and turn sandbox events into spans and alerts.
+section: integrations
+order: 2
+---
+
+Running OpenClaw inside [NVIDIA NemoClaw](https://www.nvidia.com/en-us/ai/nemoclaw/)? TokenJam connects to the OpenShell Gateway WebSocket and turns sandbox events (blocked network requests, filesystem denials, inference reroutes) into alerts.
+
+This is the observability layer that NemoClaw doesn't ship with.
+
+## Install
+
+```python
+from tokenjam.sdk.integrations.nemoclaw import watch_nemoclaw
+
+observer = watch_nemoclaw()
+asyncio.create_task(observer.connect())
+```
+
+By default `watch_nemoclaw()` reads gateway endpoint and credentials from the NemoClaw environment: `NEMOCLAW_GATEWAY_URL`, `NEMOCLAW_GATEWAY_TOKEN`. Override explicitly:
+
+```python
+observer = watch_nemoclaw(
+    gateway_url="wss://nemoclaw.local:8443/gateway",
+    token=os.environ["NEMOCLAW_TOKEN"],
+)
+```
+
+## What gets captured
+
+Every gateway event becomes a TokenJam span with the relevant attributes:
+
+| Event | Span name | Alert type |
+|---|---|---|
+| Network egress blocked | `nemoclaw.network.blocked` | `network_egress_blocked` |
+| Filesystem access denied | `nemoclaw.fs.denied` | `filesystem_access_denied` |
+| Syscall denied | `nemoclaw.syscall.denied` | `syscall_denied` |
+| Inference rerouted | `nemoclaw.inference.rerouted` | `inference_rerouted` |
+| Sandbox started | `nemoclaw.sandbox.start` | none |
+| Sandbox terminated | `nemoclaw.sandbox.end` | none |
+
+Alerts fire instantly through your configured channels (ntfy, Discord, Telegram, webhook, etc.). See [Alerts](/docs/alerts).
+
+## Use cases
+
+- **Egress detection.** Catch an agent trying to exfiltrate data to an unsanctioned domain.
+- **Inference reroute auditing.** When NemoClaw silently swaps the agent's model (e.g., from Claude to a locally hosted Llama), you see the swap *and* its cost impact.
+- **Sandbox boundary debugging.** When an agent crashes because it tried to write outside its allowed paths, the denial events make the cause obvious.
+
+## Without NemoClaw
+
+If you're not running NemoClaw, ignore this integration. None of the rest of TokenJam depends on it.

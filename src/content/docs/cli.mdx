@@ -1,0 +1,73 @@
+---
+title: CLI reference
+description: 16 commands cover onboarding, status, traces, cost, alerts, budget, drift, tools, demo, export, MCP, serve, stop, doctor, and uninstall.
+section: cli-and-ui
+order: 1
+---
+
+The `tj` CLI is the primary interface to TokenJam. Sixteen commands cover every workflow. All support `--json` for machine-readable output.
+
+## Daily-use commands
+
+```bash
+tj status              # current state, cost, active alerts
+tj traces              # full span history with waterfall view
+tj cost --since 7d     # cost breakdown by agent, model, day
+tj alerts              # everything that fired while you were away
+tj budget              # view and set daily/session cost limits
+tj drift               # behavioral drift Z-scores vs baseline
+tj tools               # tool call history with error rates
+tj serve               # start the web UI + REST API
+```
+
+Example:
+
+```
+$ tj status
+
+● my-email-agent   completed   (2m 14s)
+
+  Cost today:     $0.0340 / $5.0000 limit
+  Tokens:         12.4k in / 3.8k out
+  Tool calls:     47
+  Active session: sess-a1b2c3
+
+  send_email called (sensitive action: critical)
+```
+
+## Setup and maintenance
+
+```bash
+tj onboard                  # interactive setup for any agent
+tj onboard --claude-code    # Claude Code-specific setup
+tj onboard --codex          # Codex-specific setup
+tj doctor                   # verify config, daemon, MCP, env
+tj stop                     # stop the background daemon
+tj uninstall --yes          # remove everything tj installed
+```
+
+## Export and inspection
+
+```bash
+tj export --format otlp        # forward to Grafana, Datadog, any OTel backend
+tj export --format openevals   # openevals / agentevals trajectory evaluation
+tj export --format json        # NDJSON
+tj export --format csv
+tj demo                        # list reproducible incident scenarios
+tj demo retry-loop             # run one
+tj mcp                         # start the MCP server (stdin/stdout)
+```
+
+See [Export](/docs/export) for the full export reference.
+
+## Global flags
+
+- `--json`: machine-readable output. All commands support this.
+- `--config <path>`: override config file location.
+- `--quiet` / `--verbose`: control log verbosity.
+
+Per-command flags and exit codes are documented in the help text:
+
+```bash
+tj <command> --help
+```

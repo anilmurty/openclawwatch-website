@@ -1,0 +1,79 @@
+---
+title: Python SDK
+description: Instrument any Python agent with provider patches, framework patches, and the @watch decorator.
+section: sdks
+order: 1
+---
+
+The Python SDK works two ways. **Provider patches** intercept LLM API calls directly (framework-agnostic). **Framework patches** instrument higher-level abstractions in LangChain, CrewAI, AutoGen, and similar tools. Both can be combined.
+
+## Install
+
+```bash
+pip install tokenjam
+tj onboard       # creates config, generates ingest secret
+tj doctor        # verify your setup
+```
+
+## The `@watch` decorator
+
+Wrap your agent entry point so every call within it becomes a span tree:
+
+```python
+from tokenjam.sdk import watch
+from tokenjam.sdk.integrations.anthropic import patch_anthropic
+
+patch_anthropic()    # auto-intercepts all Anthropic API calls
+
+@watch(agent_id="my-agent")
+def run(task: str) -> str:
+    # your agent code, nothing else to change
+    ...
+```
+
+`@watch` opens a session, attributes every nested LLM/tool call to it, and closes the session on return. Combined with a provider patch, you get cost + tokens + tool calls per session with no instrumentation code in the body.
+
+## Provider patches
+
+Intercept at the API level. Framework-agnostic.
+
+```python
+from tokenjam.sdk.integrations.anthropic import patch_anthropic   # Anthropic
+from tokenjam.sdk.integrations.openai    import patch_openai      # OpenAI
+from tokenjam.sdk.integrations.gemini    import patch_gemini      # Google Gemini
+from tokenjam.sdk.integrations.bedrock   import patch_bedrock     # AWS Bedrock
+from tokenjam.sdk.integrations.litellm   import patch_litellm     # LiteLLM (100+ providers)
+```
+
+`patch_litellm()` covers all providers LiteLLM routes to (OpenAI, Anthropic, Bedrock, Vertex, Cohere, Mistral, Ollama, etc.). If you use LiteLLM, you don't need individual patches.
+
+OpenAI-compatible providers (Groq, Together, Fireworks, xAI, Azure OpenAI) work via `patch_openai(base_url=...)`.
+
+## Framework patches
+
+Instrument the framework's own abstractions:
+
+```python
+from tokenjam.sdk.integrations.langchain         import patch_langchain        # BaseLLM + BaseTool
+from tokenjam.sdk.integrations.langgraph         import patch_langgraph        # CompiledGraph
+from tokenjam.sdk.integrations.crewai            import patch_crewai           # Task + Agent
+from tokenjam.sdk.integrations.autogen           import patch_autogen          # ConversableAgent
+from tokenjam.sdk.integrations.llamaindex        import patch_llamaindex       # Native OTel
+from tokenjam.sdk.integrations.openai_agents_sdk import patch_openai_agents    # Native OTel
+from tokenjam.sdk.integrations.nemoclaw          import watch_nemoclaw         # NemoClaw Gateway
+```
+
+See the full [supported frameworks](/docs/frameworks) list for status and notes per integration.
+
+## What gets captured
+
+Every patched call records:
+
+- Provider, model, and model version
+- Input/output tokens
+- Cost (priced at call time using `pricing.toml`)
+- Latency
+- Tool calls invoked during the response
+- Errors and retries
+
+By default, prompt and completion content are **not** captured. Set `[capture]` flags in your config if you want them stored locally. See [Configuration](/docs/configuration).

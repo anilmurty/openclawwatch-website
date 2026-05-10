@@ -1,0 +1,61 @@
+---
+title: Architecture
+description: Ingest pipeline, cost engine, alert engine, schema validator, storage, and how it all fits together.
+section: reference
+order: 1
+---
+
+import ArchDiagram from '@/components/ArchDiagram.astro';
+
+TokenJam is a small set of components arranged as a pipeline. Spans come in via three paths, get normalized, get evaluated against cost, alerts, and schema rules, then land in DuckDB. Everything after the pipeline (CLI, web UI, MCP, Prometheus) is a read on DuckDB.
+
+## Component diagram
+
+<ArchDiagram />
+
+## Ingest paths
+
+Three ways spans enter the system, normalized into the same shape:
+
+- **OTLP:** for agents that already emit OpenTelemetry (Claude Code, Codex, OpenAI Agents SDK, LlamaIndex, etc.).
+- **Python SDK:** `@watch` plus provider/framework patches send spans via `TjSpanExporter`.
+- **TypeScript SDK:** explicit `SpanBuilder` → HTTP POST.
+
+## IngestPipeline
+
+Every incoming span flows through three stages:
+
+1. **Sanitize.** Strip content per `[capture]` config, normalize timestamps, validate required fields.
+2. **Session continuity.** Spans missing `session.id` are attributed to the most recent open session for that agent. Long-running sessions get auto-rotated on idle.
+3. **Extract.** Pull GenAI SemConv attributes into typed columns for cheap querying. Raw attributes remain available.
+
+## CostEngine
+
+`pricing.toml` maps `(provider, model)` to per-token prices. Updated when providers change pricing. The engine prices every LLM call as it ingests. Costs are stored alongside spans, not computed at query time.
+
+## AlertEngine
+
+Evaluates 13 alert types against each span and across windowed batches. Cooldowns prevent storms. Channels dispatch async (ntfy, Discord, Telegram, webhook, stdout, log). See [Alerts](/docs/alerts).
+
+## SchemaValidator
+
+For tool calls, either:
+
+- Declares a JSON Schema in your config under `[agents.<id>.tools.<name>.schema]`, or
+- Lets the validator infer a schema from the first N successful calls.
+
+Subsequent violations emit a `schema_violation` alert.
+
+## Storage
+
+DuckDB. One file, embedded, no separate server. Read-write held by `tj serve`; read-only mode used by the MCP server and CLI so they can coexist. Retention pruning runs on a daily schedule.
+
+## Why DuckDB?
+
+Three reasons:
+
+1. **Columnar.** Span queries are aggregations across millions of rows, exactly what DuckDB optimizes for.
+2. **Embedded.** No daemon to install, no port to open, no auth to manage.
+3. **SQL.** Existing OTel queries port directly; advanced users can drop to SQL via `tj export --format json` + their own tools.
+
+Full design notes and contribution guide: [AGENTS.md](https://github.com/metabuilder-labs/tokenjam/blob/main/AGENTS.md) in the OSS repo.

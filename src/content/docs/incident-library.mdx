@@ -1,0 +1,48 @@
+---
+title: Agent Incident Library
+description: Reproducible AI agent failures you can run in 30 seconds. No API keys, no config, no setup.
+section: reference
+order: 3
+---
+
+Three reproducible failure modes for autonomous agents, each runnable against an in-memory backend with no API keys, no config, no setup. Useful as test cases, demos, and ground truth when verifying alerts.
+
+## Run a scenario
+
+```bash
+tj demo                     # list all scenarios
+tj demo retry-loop          # run one
+tj demo retry-loop --json   # machine-readable output
+```
+
+Each scenario runs against an in-memory backend and produces a side-by-side comparison: what `print()` shows vs. what TokenJam reveals.
+
+## Scenarios
+
+### `retry-loop`
+
+An agent retries a failing tool in a loop, burning time and tokens without making progress.
+
+**What goes wrong:** the tool returns an error, the LLM doesn't recognize it as terminal, and the agent retries with the same arguments. Without a call-count budget, the loop runs until the session times out.
+
+**What TokenJam catches:** `retry_loop` and `failure_rate` alerts fire automatically. The trace view shows the repeating span pattern; cost view shows the wasted spend.
+
+### `surprise-cost`
+
+A model silently escalates from Haiku to Opus mid-chain because a fallback rule kicked in.
+
+**What goes wrong:** the agent appears to run normally: same outputs, same flow. But the model changed under it. A few minutes later the bill is 30× higher than expected.
+
+**What TokenJam catches:** per-model cost breakdown shows the $3+ you didn't expect. The trace view shows the model swap span as a discrete event with a model-change attribute.
+
+### `hallucination-drift`
+
+Agent behavior shifts (different token counts, different tool calls) without any code change. Usually triggered by an upstream model update or a subtle prompt edit.
+
+**What goes wrong:** outputs still look plausible. You only notice something is off when a downstream system breaks.
+
+**What TokenJam catches:** `drift_detected` alert fires with Z-scores at session end. The drift view compares the latest session against the baseline window across token counts, tool call distribution, and average latency.
+
+## Adding your own
+
+The scenarios live in the OSS repo under `incidents/`. Each is a directory with a `README.md` describing the failure and a small Python or shell script that reproduces it against an in-memory backend. PRs welcome. Open an issue first if you're proposing a new scenario.

@@ -1,0 +1,70 @@
+---
+title: Supported frameworks
+description: Provider patches, framework patches, and OTel-native integrations.
+section: integrations
+order: 1
+---
+
+TokenJam supports three integration tiers, listed from least to most opinionated:
+
+1. **Native OTel:** agents that already emit OpenTelemetry. No SDK install needed.
+2. **Provider patches:** intercept at the LLM API level (Anthropic, OpenAI, Bedrock, etc.).
+3. **Framework patches:** instrument higher-level abstractions (LangChain, CrewAI, AutoGen).
+
+## Native OTel
+
+| Framework | Status | Notes |
+|---|---|---|
+| Claude Code | Built-in | `tj onboard --claude-code` |
+| OpenClaw | Built-in | `diagnostics-otel` plugin |
+| OpenAI Agents SDK | Built-in | Native OTel exporter |
+| Google ADK | Built-in | Native OTel exporter |
+| Strands Agent SDK (AWS) | Built-in | Native OTel exporter |
+| LlamaIndex | Built-in | `opentelemetry-instrumentation-llama-index` |
+| Haystack | Built-in | Native OTel exporter |
+| Pydantic AI | Built-in | Native OTel exporter |
+| Semantic Kernel | Built-in | Native OTel exporter |
+
+Just point `OTEL_EXPORTER_OTLP_ENDPOINT` at `http://127.0.0.1:7391` and start your agent.
+
+## Provider patches (Python)
+
+Intercept the API client directly. Framework-agnostic, works inside any orchestrator.
+
+```python
+from tokenjam.sdk.integrations.anthropic import patch_anthropic
+from tokenjam.sdk.integrations.openai    import patch_openai
+from tokenjam.sdk.integrations.gemini    import patch_gemini
+from tokenjam.sdk.integrations.bedrock   import patch_bedrock
+from tokenjam.sdk.integrations.litellm   import patch_litellm
+```
+
+`patch_litellm()` covers all providers LiteLLM routes to: OpenAI, Anthropic, Bedrock, Vertex, Cohere, Mistral, Ollama, and more. If you use LiteLLM, you don't need the individual patches.
+
+OpenAI-compatible providers (Groq, Together, Fireworks, xAI, Azure OpenAI) work via `patch_openai(base_url=...)`.
+
+## Framework patches (Python)
+
+| Framework | Patch function | Instruments |
+|---|---|---|
+| LangChain | `patch_langchain` | `BaseLLM`, `BaseTool` |
+| LangGraph | `patch_langgraph` | `CompiledGraph` |
+| CrewAI | `patch_crewai` | `Task`, `Agent` |
+| AutoGen | `patch_autogen` | `ConversableAgent` |
+
+Import and call once at startup:
+
+```python
+from tokenjam.sdk.integrations.langchain import patch_langchain
+patch_langchain()
+```
+
+Spans nest naturally. A CrewAI Task that calls a LangChain tool produces a parent-child span tree, with the tool's underlying API call as a leaf.
+
+## TypeScript
+
+The TypeScript SDK currently ships with the manual `SpanBuilder` interface. Framework patches for LangChain JS, OpenAI Agents SDK, Vercel AI SDK, and Mastra are on the [Roadmap](/docs/roadmap).
+
+## NemoClaw integration
+
+NemoClaw isn't a framework you instrument; it's a sandbox runtime. TokenJam connects to the OpenShell Gateway WebSocket and turns sandbox events into spans and alerts. See [NemoClaw integration](/docs/nemoclaw).
