@@ -1141,11 +1141,61 @@
 
   .solution-item-check svg { width: 10px; height: 10px; color: var(--blue); }
 
+  /* Mobile burger menu */
+  .nav-mobile-blog { display: none; }
+  .nav-burger {
+    display: none;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
+    color: var(--white-dim);
+  }
+  .nav-burger:hover { color: var(--white); border-color: var(--border-strong); }
+  .nav-mobile-menu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    right: 16px;
+    margin-top: 8px;
+    background: var(--navy-2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 8px;
+    min-width: 180px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    z-index: 100;
+  }
+  .nav-mobile-menu.open { display: block; }
+  .nav-mobile-menu a {
+    display: block;
+    padding: 10px 12px;
+    color: var(--white-dim);
+    text-decoration: none;
+    font-size: 14px;
+    border-radius: 6px;
+  }
+  .nav-mobile-menu a:hover { background: var(--navy-3); color: var(--white); }
+
   /* Responsive */
   @media (max-width: 768px) {
-    nav { padding: 0 16px; }
-    .nav-links { display: flex; gap: 16px; font-size: 13px; }
+    nav { padding: 0 16px; position: relative; }
+    .nav-links { display: none; }
     .nav-actions { display: none; }
+    .nav-burger { display: inline-flex; }
+    .nav-mobile-blog {
+      display: inline-block;
+      color: var(--white-dim);
+      text-decoration: none;
+      font-size: 14px;
+      margin-right: 12px;
+    }
+    .nav-mobile-blog:hover { color: var(--white); }
     .hero { padding: 90px 20px 60px; }
     .section-light, .section-dark { padding: 70px 20px; }
     .features-grid { grid-template-columns: 1fr; }
@@ -1191,7 +1241,6 @@
     <li><a href="#features">Features</a></li>
     <li><a href="#install">Install</a></li>
     <li><a href="#compare">Compare</a></li>
-    <li><a href="#coming-next">What's next</a></li>
     <li><a href="/docs">Docs</a></li>
     <li><a href="/blog">Blog</a></li>
   </ul>
@@ -1223,6 +1272,29 @@
     </a>
     <a href="#install" class="btn-primary" onclick="trackEvent('cta_click', 'conversion', 'get_started_nav')">Get started</a>
   </div>
+
+  <a href="/blog" class="nav-mobile-blog">Blog</a>
+  <button type="button" class="nav-burger" id="nav-burger" aria-label="Menu" aria-expanded="false" aria-controls="nav-mobile-menu" onclick="document.getElementById('nav-mobile-menu').classList.toggle('open'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+  </button>
+  <div class="nav-mobile-menu" id="nav-mobile-menu" role="menu">
+    <a href="#features" role="menuitem" onclick="document.getElementById('nav-mobile-menu').classList.remove('open');document.getElementById('nav-burger').setAttribute('aria-expanded','false');">Features</a>
+    <a href="#install" role="menuitem" onclick="document.getElementById('nav-mobile-menu').classList.remove('open');document.getElementById('nav-burger').setAttribute('aria-expanded','false');">Install</a>
+    <a href="#compare" role="menuitem" onclick="document.getElementById('nav-mobile-menu').classList.remove('open');document.getElementById('nav-burger').setAttribute('aria-expanded','false');">Compare</a>
+    <a href="/docs" role="menuitem">Docs</a>
+    <a href="https://github.com/metabuilder-labs/tokenjam" target="_blank" rel="noopener noreferrer" role="menuitem">GitHub</a>
+  </div>
+  <script>
+    document.addEventListener('click', function(e) {
+      var menu = document.getElementById('nav-mobile-menu');
+      var burger = document.getElementById('nav-burger');
+      if (!menu || !burger) return;
+      if (menu.classList.contains('open') && !menu.contains(e.target) && !burger.contains(e.target)) {
+        menu.classList.remove('open');
+        burger.setAttribute('aria-expanded', 'false');
+      }
+    });
+  </script>
 </nav>
 
 
@@ -1238,11 +1310,11 @@
     </div>
 
     <h1 class="hero-title">
-      Token economics<br>for AI agents.
+      Token efficiency<br>for AI agents.
     </h1>
 
     <p class="hero-subtitle">
-      See where your tokens go. Find where they're wasted.
+      Make your AI agents make the most of their tokens.
     </p>
 
     <div class="hero-ctas">
@@ -1256,19 +1328,8 @@
       </a>
     </div>
 
-    <!-- Feature pills -->
-    <p class="hero-strip-label">WHAT TOKENJAM DOES</p>
-    <div class="hero-integrations" style="margin-bottom: 24px;">
-      <span class="hero-integration-pill hero-feature-pill">See where tokens go</span>
-      <span class="hero-integration-pill hero-feature-pill">Find where they're wasted</span>
-      <span class="hero-integration-pill hero-feature-pill">Keep agents in line</span>
-      <span class="hero-integration-pill hero-feature-pill">OTel-native</span>
-      <span class="hero-integration-pill hero-feature-pill">Local-first</span>
-      <span class="hero-integration-pill hero-feature-pill">CLI + web UI</span>
-    </div>
-
     <!-- Integration showcase -->
-    <p class="hero-strip-label">INTEGRATIONS</p>
+    <p class="hero-strip-label">WORKS WITH</p>
     <div class="hero-integrations">
       <span class="hero-integration-pill">Anthropic</span>
       <span class="hero-integration-pill">OpenAI</span>
@@ -1301,7 +1362,7 @@
           <button class="step-tab" id="tab-1" onclick="showStep(1)">onboard</button>
           <button class="step-tab" id="tab-2" onclick="showStep(2)">status</button>
           <button class="step-tab" id="tab-3" onclick="showStep(3)">traces</button>
-          <button class="step-tab" id="tab-4" onclick="showStep(4)">optimize <span style="color:var(--amber);font-size:9px;letter-spacing:0.08em;margin-left:4px;">SOON</span></button>
+          <button class="step-tab" id="tab-4" onclick="showStep(4)">optimize</button>
         </div>
       </div>
     </div>
@@ -1389,7 +1450,7 @@
             <div class="solution-item-check">
               <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 5l2.5 2.5 3.5-4"/></svg>
             </div>
-            <span><strong>Find where they're wasted</strong> — Trace-driven detection of model-downgrade opportunities, cache-eligible duplicates, prompt bloat, and tool-call retry loops.<span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--amber);margin-left:6px;letter-spacing:0.05em;">soon</span></span>
+            <span><strong>Find where they're wasted</strong> — <code>tj optimize</code> analyzes your real sessions and flags model-downgrade candidates plus per-provider monthly budget projection. Shipped.</span>
           </div>
           <div class="solution-item">
             <div class="solution-item-check">
@@ -1489,9 +1550,9 @@
         <div class="feature-icon">
           <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 16l5-8 3 4 4-7 4 11"/><circle cx="10" cy="10" r="1.5" fill="currentColor"/></svg>
         </div>
-        <div class="feature-title">Trace-driven cost optimization <span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--amber);margin-left:8px;letter-spacing:0.08em;">COMING SOON</span></div>
-        <p class="feature-desc">Most coding-agent calls don't need the most expensive model. TokenJam will analyze your traces and recommend concrete fixes — model downgrades that don't lose quality, cache-eligible duplicates, prompt-bloat cleanup. Driven by your real sessions, not generic heuristics. <a href="https://github.com/metabuilder-labs/tokenjam/discussions" style="color:var(--blue);text-decoration:underline;">Watch the discussion</a> for the design-partner invite.</p>
-        <span class="feature-badge badge-new">tj optimize</span>
+        <div class="feature-title">Trace-driven cost optimization</div>
+        <p class="feature-desc">Most coding-agent calls don't need the most expensive model. <code>tj optimize</code> analyzes your real sessions and flags model-downgrade candidates plus per-provider monthly budget projection — driven by your actual traces, not generic heuristics. Every recommendation ships with a quality-equivalence caveat, so you decide what to apply.</p>
+        <span class="feature-badge badge-new">tj optimize · shipped</span>
       </div>
     </div>
 
@@ -1627,8 +1688,8 @@
 
           <tr class="section-row"><td colspan="6">Token economics</td></tr>
           <tr>
-            <td class="feat-name">Trace-driven cost recommendations<span style="font-family:'Geist Mono',monospace;font-size:11px;color:rgba(var(--accent-rgb),0.3);display:block;margin-top:2px;">model-downgrade analysis, prompt bloat, cache opportunities</span></td>
-            <td class="tj-col"><span class="partial">~</span></td>
+            <td class="feat-name">Trace-driven cost recommendations<span style="font-family:'Geist Mono',monospace;font-size:11px;color:rgba(var(--accent-rgb),0.3);display:block;margin-top:2px;">model-downgrade candidates + per-provider budget projection</span></td>
+            <td class="tj-col"><span class="yes">✓</span></td>
             <td><span class="no">—</span></td>
             <td><span class="no">—</span></td>
             <td><span class="partial">~</span></td>
@@ -1709,22 +1770,13 @@
 <section class="section-light" id="coming-next">
   <div class="container">
     <div class="section-label">coming next</div>
-    <h2>Trace-driven optimization.<br>Eval-to-production correlation.</h2>
+    <h2>Eval-to-production correlation.</h2>
     <p class="section-desc">
-      The optimization layer turns observability into action. Eval correlation closes the loop from
-      offline testing to live production. Both are in active development. The OSS roadmap is public.
+      Connect what graded your agent offline with what it's doing in production. In active
+      development; the OSS roadmap is public.
     </p>
 
-    <div class="features-grid" style="grid-template-columns: 1fr 1fr;">
-      <div class="feature-card">
-        <div class="feature-icon">
-          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 14l5-8 3 4 4-7 4 11"/></svg>
-        </div>
-        <div class="feature-title">tj optimize <span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--amber);margin-left:8px;letter-spacing:0.08em;">Q3 2026</span></div>
-        <p class="feature-desc">One command, one number. Analyzes your real traces and outputs concrete cost-recovery recommendations — model cascade analysis, cache opportunities, prompt-bloat detection. Apply commands generate hot-reloadable runtime rules.</p>
-        <span class="feature-badge badge-new">design-partner program open</span>
-      </div>
-
+    <div class="features-grid" style="grid-template-columns: 1fr; max-width: 640px; margin: 0 auto;">
       <div class="feature-card">
         <div class="feature-icon">
           <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="6" r="2.5"/><circle cx="14" cy="14" r="2.5"/><path d="M7.5 7.5l5 5"/></svg>
@@ -1951,22 +2003,21 @@ const steps = [
   {
     label: 'optimize',
     lines: [
-      { txt: '$ tj optimize --last 30d --agent claude-code', c: ['t-prompt','t-cmd'], delay: 0 },
+      { txt: '$ tj optimize --last 30d', c: ['t-prompt','t-cmd'], delay: 0 },
       { txt: '', delay: 300 },
       { txt: 'Analyzing 247 sessions, 148M tokens, $4,287 spend...', c: ['t-dim'], delay: 500 },
       { txt: '', delay: 900 },
-      { txt: '  ① Model downgrade: 47% of sessions safe for Haiku', c: ['t-blue'], delay: 1100 },
-      { txt: '     Est. savings: $1,632/mo (-38%)', c: ['t-success'], delay: 1300 },
-      { txt: '', delay: 1500 },
-      { txt: '  ② Cache opportunities: 12% duplicate request rate', c: ['t-blue'], delay: 1700 },
-      { txt: '     Est. savings: $317/mo (-7%)', c: ['t-success'], delay: 1900 },
+      { txt: 'Model downgrade candidates', c: ['t-label'], delay: 1100 },
+      { txt: '  → 47% of sessions could run on Haiku instead of Sonnet', c: ['t-blue'], delay: 1300 },
+      { txt: '  → Estimated savings: $1,632/mo', c: ['t-success'], delay: 1500 },
+      { txt: '  ⚠ Quality equivalence is not guaranteed.', c: ['t-warn'], delay: 1700 },
+      { txt: '    Review affected sessions before applying.', c: ['t-warn'], delay: 1900 },
       { txt: '', delay: 2100 },
-      { txt: '  ③ Prompt bloat: system prompt +38% over 30d', c: ['t-blue'], delay: 2300 },
-      { txt: '     Cost of repeated transmission: $94/mo', c: ['t-success'], delay: 2500 },
-      { txt: '', delay: 2700 },
-      { txt: '─── Estimated monthly savings: $2,043 (-48%) ───', c: ['t-warn'], delay: 2900 },
-      { txt: '', delay: 3100 },
-      { txt: '# Preview — full feature ships Q3 2026', c: ['t-dim'], delay: 3300 },
+      { txt: 'Anthropic monthly budget', c: ['t-label'], delay: 2300 },
+      { txt: '  → Spent this cycle:    $2,341 / $3,500', c: ['t-blue'], delay: 2500 },
+      { txt: '  → Projected end:       $3,289  (under budget)', c: ['t-success'], delay: 2700 },
+      { txt: '', delay: 2900 },
+      { txt: 'Run `tj optimize --json` for the full report.', c: ['t-dim'], delay: 3100 },
     ]
   }
 ];
