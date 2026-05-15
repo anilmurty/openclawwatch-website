@@ -1,0 +1,281 @@
+---
+title: "Behavioral drift detection for AI agents: Z-scores, Jaccard similarity, and why your CLAUDE.md silently stops working after compaction."
+description: "A technical deep-dive on detecting when an agent's behavior wanders off its baseline. Using Z-scores on token / duration / tool-count distributions and Jaccard similarity on tool sequences, run locally over your own session history."
+author: "ansh-saxena"
+publishDate: 2026-05-17
+tags: ["drift", "claude-code", "observability", "statistics", "tokenjam"]
+pillar: "observability"
+image: "/blog/agent-observability.jpg"
+draft: false
+---
+
+import TLDR from '@/components/TLDR.astro';
+import Callout from '@/components/Callout.astro';
+import FAQBlock from '@/components/FAQBlock.astro';
+
+<TLDR>
+- The rules in your `CLAUDE.md` get honored at the start of a session, then degrade. There is now a [verbatim GitHub measurement](https://github.com/anthropics/claude-code/issues/40801): "compliance starts at 100% in the first 30 minutes → drops to 50–60% after first compaction → hits 20% after second compaction." It's not flakiness. It's deterministic degradation.
+- The category name for this is **behavioral drift**. Most "drift detection" in the AI observability market is *embedding drift*. Semantic distance between input distributions over time. That's not what's happening here. What's happening here is the agent's *action distribution*. Which tools it calls, how often, in what order. Wanders off the baseline it had at session start.
+- We built drift detection into TokenJam (`tj`) using two cheap, interpretable signals: **Z-scores** on per-session input tokens, output tokens, duration, and tool-call count vs an N-session baseline, and **Jaccard similarity** on the *set* of tool calls each session made. When either trips, we fire a `drift_detected` alert.
+- The math is high-school statistics. The clever part is that it runs locally on your laptop over your own session history, with no embedding model in the loop, and it answers the practical question: *"is this agent behaving the way it used to?"*
+- This post is the algorithm, the implementation, the calibration story, and the failure modes. Including the ones where Z-scores lie to you.
+</TLDR>
+
+## The drift you actually care about
+
+There's a paper-flavored definition of "drift" in ML observability that's been around since long before LLMs: input data distribution shifts over time, model performance degrades, you retrain. That's *data drift* and the standard answer is embedding distance. Sample embeddings of yesterday's queries vs today's, watch the distance grow.
+
+That's not what kills autonomous coding agents.
+
+What kills autonomous coding agents is *behavioral* drift: the *agent* is shifting, not the data. The most common cause in 2026 is **context-window compaction**. Anthropic's Claude Code compacts the context every N tokens; LangGraph workflows compact in their own way; every long-running autonomous agent has some equivalent. After compaction, the rules in your system prompt are *less in scope* than they were at minute one. The agent is, in a measurable sense, a different agent.
+
+The single most-cited measurement of this effect is in [Claude Code GH #40801](https://github.com/anthropics/claude-code/issues/40801):
+
+> "Compliance starts at 100% in the first 30 minutes → drops to 50–60% after first compaction → hits 20% after second compaction. Your rules were effectively gone."
+
+That's a real number from a real Claude Code user, measured across a real long-running session. It's not a synthetic benchmark. And it captures the problem perfectly: the rule isn't broken at minute one, so a test suite passes; the rule is broken at minute 90, when no one is testing.
+
+You need a way to *see this drift while it's happening* without running an eval. That's what this post is about.
+
+## What "embedding drift" misses
+
+Walk into any LLM observability vendor's drift docs and you'll find some version of this:
+
+> *"Compute embeddings of your prompts/responses over a sliding window. Compute the centroid of the baseline window. Track the cosine distance from new samples to that centroid. Alert when distance exceeds threshold T."*
+
+This works for retrieval-augmented systems where the *input* distribution is the thing that shifts. It does not work for autonomous coding agents because:
+
+1. **The agent's inputs don't shift. Its outputs do.** A Claude Code session reads roughly the same kinds of files and emits roughly the same kinds of tool calls. The shift is *how often* and *in what order*.
+2. **Cosine distance on embeddings is hard to interpret.** An alert that says "drift = 0.31, threshold 0.30" is not actionable. An alert that says "this session called `bash` 14x more than baseline" is.
+3. **Embedding models are expensive at this volume.** A long Claude Code session emits hundreds of spans. Running an embedding model on every prompt/response on a laptop is the wrong tradeoff.
+
+The right primitive for *behavioral* drift is to look at the *action distribution* directly. How many tokens did this session use? How long did it take? How many tool calls? Which tools? In what proportion?
+
+That's the same data your provider's invoice is computed from. It's already in your traces. You don't need an embedding model. You need three columns from a DuckDB table.
+
+## The TokenJam algorithm in one screen
+
+The core implementation in `tokenjam/core/drift.py` is two ideas:
+
+**Idea 1: Per-metric Z-scores against a session-level baseline.**
+
+After the first N completed sessions for a given agent (default N = 10), we compute the mean (μ) and standard deviation (σ) of four metrics:
+
+- `input_tokens`. Total prompt tokens summed across all LLM calls in the session
+- `output_tokens`. Total completion tokens summed across all LLM calls in the session
+- `session_duration`. Wall-clock seconds from first span to last span
+- `tool_call_count`. Total number of `gen_ai.tool.call` spans
+
+For each subsequent session, we compute Z = (x - μ) / σ for each metric. If `|Z| > 3` on any metric, we flag a drift candidate.
+
+```python
+# tokenjam/core/drift.py (simplified)
+def z_scores(session_stats, baseline):
+    z = {}
+    for metric in ("input_tokens", "output_tokens",
+                   "session_duration", "tool_call_count"):
+        mu, sigma = baseline[metric]["mean"], baseline[metric]["stddev"]
+        if sigma == 0:
+            z[metric] = 0.0
+            continue
+        z[metric] = (session_stats[metric] - mu) / sigma
+    return z
+
+def evaluate_drift(session_stats, baseline, threshold=3.0):
+    z = z_scores(session_stats, baseline)
+    tripped = {k: v for k, v in z.items() if abs(v) > threshold}
+    return tripped
+```
+
+**Idea 2: Jaccard similarity on the *set* of tool calls.**
+
+The Z-score on tool-call count catches "this session called more (or fewer) tools than baseline." It misses "this session called *different* tools than baseline." A session that used to call `read_file, edit_file, bash` and now calls `read_file, web_fetch, bash, curl, ssh` has the same call count but a different action shape.
+
+We capture this with [Jaccard similarity](https://en.wikipedia.org/wiki/Jaccard_index) on the multiset of tool names used:
+
+```
+J(A, B) = |A ∩ B| / |A ∪ B|
+```
+
+A session whose tool set is identical to baseline scores 1.0. A session that uses entirely different tools scores 0.0. We fire `drift_detected` when J drops below 0.5 against the baseline tool set, regardless of the Z-scores.
+
+The full alert pipeline:
+
+```
+on session_end:
+  if agent has N completed sessions:
+    if no baseline:
+      build_baseline()
+    else:
+      stats = compute_session_stats()
+      z = z_scores(stats, baseline)
+      jaccard = tool_set_similarity(stats.tools, baseline.tools)
+      if any(|z[m]| > 3) or jaccard < 0.5:
+        fire_alert(DRIFT_DETECTED, payload={z, jaccard, sample_diff})
+```
+
+This is high-school statistics on three columns from a DuckDB table. That's the point.
+
+## Why these specific metrics
+
+We tried a handful of things before settling on these four. The decision criteria were:
+
+1. **Available on every span TokenJam ingests.** Input/output tokens come from the OTel GenAI semconv (`gen_ai.usage.input_tokens` / `gen_ai.usage.output_tokens`). Duration is span start/end timestamps. Tool count is just `count(span_name == "gen_ai.tool.call")`. No extra capture needed.
+2. **Independent of prompt content.** If the user starts asking the agent harder questions, prompt content shifts. That's not "the agent is drifting," it's "the workload shifted." Token *counts* are a poor proxy for prompt difficulty but a reasonable proxy for agent verbosity / loopiness.
+3. **Interpretable in the alert message.** An alert that says "output_tokens Z=4.2 (this session: 142k, baseline: 38k ± 24k)" is one you can act on. An alert that says "drift score 0.71" is not.
+
+We considered a per-tool *frequency* vector (multinomial Z-score) and rejected it for now. Too many degrees of freedom for the baseline size, too noisy in practice with N=10. Worth revisiting at N=50+.
+
+We considered using a learned anomaly detector (isolation forest, one-class SVM). Rejected because the maintenance / interpretability cost was too high for the practical lift. Z-scores are unfashionable; they also work and they explain themselves.
+
+## What this looks like in the alert
+
+Concretely, when `drift_detected` fires from `tj`, the Discord/ntfy message looks like this:
+
+```
+🚨 drift_detected. Agent: claude-code-overnight  session: 2026-05-17-0143
+   Z-score trip:
+     output_tokens   Z = +4.21   (session: 142,300  baseline: 38,200 ± 24,700)
+     session_duration Z = +3.78  (session: 89 min   baseline: 22 min  ± 17 min)
+     tool_call_count Z = +5.10   (session: 247      baseline: 41 ± 40)
+   Jaccard similarity (tool set): 0.62 (above threshold, not flagged)
+   Likely failure mode: long-tail tool loop (output tokens + duration + tool count all elevated)
+   Inspect: tj trace 2026-05-17-0143
+```
+
+The "likely failure mode" hint is rule-based. We have a small table mapping Z-score signatures to plain-English hypotheses:
+
+| Signature | Hypothesis |
+|---|---|
+| ↑ output_tokens, ↑ duration, ↑ tool_call_count | Long-tail tool loop |
+| ↑ output_tokens, ↑ duration, ~ tool_call_count | Verbose generation, not loopy |
+| ↑ tool_call_count, ↑ duration, ~ output_tokens | Repeated small tool calls. Possible retry |
+| ↓ Jaccard | New tool surface. Possible scope creep or fresh task |
+| ↑ input_tokens only | Context bloat. Possibly compaction wasn't aggressive enough |
+
+These are hypotheses, not diagnoses. The alert tells you which trace to open.
+
+## Calibration: what we got wrong the first time
+
+The first version of this fired way too often. Three lessons from the calibration pass.
+
+**1. N = 10 is too small.** With ten sessions you get a baseline σ that's noisy enough to make Z = 3 trip on perfectly normal sessions. We landed on N = 10 as the *minimum to build a baseline* but added a `confidence` field. A baseline built from 10 sessions doesn't fire `drift_detected` at severity `critical`; it fires at `warning` until N ≥ 30.
+
+**2. Sessions that include `--continue` are different animals.** Continued sessions inherit context from a prior session and almost always have inflated input_tokens. We segregate continued sessions in the baseline. They get their own μ, σ.
+
+**3. Tool sets with rare-but-legitimate calls trip Jaccard too easily.** A user who once-a-week runs `tj` against a different project will look like J < 0.5 on the rare day. We added a "tool seen at least 2x in baseline window" filter. Jaccard is computed only over tools that appeared in ≥ 2 baseline sessions, not the long tail.
+
+These are the kinds of corrections that only show up after running the detector against real session history for a couple weeks. Worth being honest that this is calibration territory, not pure-theory territory.
+
+## How this relates to the CLAUDE.md compaction problem specifically
+
+The GH #40801 quote is striking because it's a measurement of a *rule degradation curve*. The author was tracking compliance against specific rules in their `CLAUDE.md`. They observed 100% → 50% → 20% across the first two compactions.
+
+TokenJam doesn't measure rule compliance directly. We measure the *behavioral signal* that correlates with it. When rules are honored, the agent calls a particular set of tools in a particular pattern. When the rules quietly fall out of scope after a compaction, the *tool distribution shifts*. Sometimes subtly, sometimes dramatically.
+
+We've found empirically that in long Claude Code sessions, the Z-score on `tool_call_count` and the Jaccard similarity on tool set both move in the direction you'd expect, on the timeline you'd expect, when compaction degrades rule compliance. That's not a controlled study. We don't have the sample size to publish one. But it's a strong enough signal that `drift_detected` fires on the kind of session that's about to do something you didn't want.
+
+What the alert can't tell you is *which rule* stopped being honored. For that you have to open the trace. But the alert tells you *when to open the trace*. Which is the entire job.
+
+## Compared to the "drift" you'll find in LangSmith, Langfuse, and Arize
+
+This is where the local-first, opinionated-taxonomy angle matters.
+
+- **[LangSmith](https://www.langchain.com/langsmith) doesn't ship behavioral drift detection out of the box**. It has an "online evals" workflow where you wire up a scorer that re-runs evals against new traces. Powerful, but it's the eval workflow, not a drift detector. Different shape, different cost (LLM-as-judge per evaluation).
+- **[Langfuse](https://langfuse.com)'s drift story is also evals-as-judge**. Write a scoring function, run it asynchronously, alert when scores drop. Same architectural choice.
+- **[Arize Phoenix](https://phoenix.arize.com/) ships embedding-based drift detection**. The data-drift framing from classical ML, cosine distance on embedded inputs. Good for retrieval systems, not what we're describing here.
+- **[AgentOps](https://www.agentops.ai/)** logs errors; doesn't ship a behavioral drift detector.
+
+TokenJam is the only one of these where drift is *built in*, *runs locally*, *uses pure-statistical metrics with no LLM in the loop*, and *fires synchronously when a session ends*. That's not a fluke. It's the entire architectural premise. The taxonomy of agent failure modes is opinionated, named, and exhaustive. `drift_detected` is one of 13.
+
+## Try it on your own session history
+
+If you've been running Claude Code for a few weeks, you almost certainly already have ≥ 10 sessions worth of baseline data. Claude Code emits OTel telemetry when `CLAUDE_CODE_ENABLE_TELEMETRY=1` is set, and TokenJam ingests it directly.
+
+```bash
+$ pip install tokenjam
+$ tj onboard --claude-code
+$ # ... Run Claude Code as normal for a few sessions ...
+$ tj drift report
+agent: claude-code   baseline: 12 sessions (built 2026-05-12)
+  input_tokens:     μ = 12,400   σ = 6,800
+  output_tokens:    μ =  4,100   σ = 2,300
+  session_duration: μ = 18 min   σ = 11 min
+  tool_call_count:  μ = 24       σ = 13
+  tool set (top 5): read_file, edit_file, bash, grep, ls
+
+  recent sessions outside ±2σ on any metric:
+    2026-05-14-2247  output_tokens Z=+3.1   tool_call_count Z=+2.8
+    2026-05-15-1432  session_duration Z=+4.0  (the one you sent us)
+```
+
+That last row is real, by the way. One of us let Claude Code chew on a refactor for 94 minutes when our baseline says 18 ± 11. The drift detector caught it. The Discord ping fired. We cancelled the run, saved $7-ish in projected spend, didn't lose anything important.
+
+This is the small, daily, undramatic version of the value. The horror-story prevention ($1,700 overnight, $437 weekend) is the big, viral version. They're the same mechanism. Fire while it's happening, name the failure mode, don't make you read the JSON the next morning.
+
+## Limitations and where this fails
+
+Worth being precise about where the detector is *bad*:
+
+1. **First N=10 sessions are baseline-building.** No alerts during this period. If your first session is the bad one, this doesn't catch it. (Use `retry_loop` and `cost_budget_session` alerts instead. Those are *within*-session and fire immediately.)
+2. **The baseline gets stale.** If your workflow legitimately shifts (new project, different agent harness), the baseline trips on every normal session until you reset. We support `tj drift baseline --reset --agent <name>` for this; we don't yet auto-rebuild incrementally.
+3. **Z-scores assume roughly normal-ish distributions.** Real session metrics are often right-skewed (a few very long sessions). We use σ but a robust alternative would be MAD (median absolute deviation). On the roadmap.
+4. **Cross-agent baselines aren't shared.** Each agent name maintains its own. If you have 5 agents that are functionally identical, you build 5 baselines. (This is a feature, not a bug, when agents have genuinely different shapes. And a friction when they don't.)
+
+If any of those bite you, file an issue. The whole detector is in [`tokenjam/core/drift.py`](https://github.com/Metabuilder-Labs/tokenjam) and ~300 lines of straightforward Python.
+
+## The wider point
+
+Behavioral drift is the second-most-common autonomous-agent failure mode after retry loops, and it's the one that most resembles "the agent is silently broken and you don't know yet." It's why you can run the same `CLAUDE.md` rules on a fresh agent and get great results, then watch the same agent quietly stop honoring them an hour later.
+
+Detecting it doesn't require an embedding model, a vendor cloud, or a billing relationship. It requires three columns in a DuckDB table, two formulas, and a willingness to fire alerts based on statistics that you can explain to a colleague in one sentence.
+
+That's the entire premise of TokenJam: name the autonomous-agent failure modes that span-counting dashboards can't see, fire alerts while they're happening, and run it locally on your laptop. Drift detection is one of thirteen.
+
+```bash
+pip install tokenjam
+tj onboard --claude-code
+tj drift report   # after ~10 sessions
+```
+
+- **GitHub:** [Metabuilder-Labs/tokenjam](https://github.com/Metabuilder-Labs/tokenjam)
+- **PyPI:** `pip install tokenjam`
+- **The launch post:** [I let Claude Code run overnight in --dangerously-skip-permissions](/blog/2026-05-15-overnight-claude-code-bill)
+- **The pricing teardown:** [LangSmith TCO is 10.7x sticker](/blog/2026-05-15-langsmith-tco-teardown)
+
+## Common questions
+
+<FAQBlock items={[
+  {
+    question: "Why Z-scores instead of a learned anomaly detector?",
+    answer: "Interpretability. An isolation forest can flag the same anomaly with a single number, but it can't tell you which feature drove the flag. Z-scores tell you 'output_tokens is 4σ above baseline'. That's a sentence you can put in a Discord alert that someone can act on at 2am. The maintenance burden of a learned detector also didn't justify itself at the scale we operate (per-agent baselines of dozens to low hundreds of sessions)."
+  },
+  {
+    question: "Why N=10 baseline minimum? Isn't that statistically thin?",
+    answer: "Yes, intentionally. The point is to get a usable baseline fast. A user shouldn't have to wait a month before drift detection turns on. At N=10 we fire alerts at 'warning' severity. At N=30 we fire at 'critical'. The math is honestly noisy at N=10; the answer is to communicate the confidence, not refuse to fire."
+  },
+  {
+    question: "Does this work for any agent or just Claude Code?",
+    answer: "Any OTel-compliant agent. The four metrics we use (input tokens, output tokens, duration, tool count) come from the OTel GenAI semantic conventions and are emitted by Claude Code, Codex CLI, LangChain, LangGraph, CrewAI, AutoGen, and anything else that follows the spec. The Jaccard similarity on tool sets works on any agent that emits gen_ai.tool.call spans."
+  },
+  {
+    question: "How is this different from embedding drift in Arize Phoenix?",
+    answer: "Embedding drift measures *semantic distance between input distributions over time*. Useful for retrieval systems where the question is 'are users asking different kinds of questions?' Behavioral drift measures *action-distribution distance for the same agent over time*. Useful for autonomous coding where the question is 'is my agent doing different things than it used to?' Both can be useful. They answer different questions. We picked the latter because that's the one our wedge audience (indie Claude Code operators) has."
+  },
+  {
+    question: "Can drift detection prevent the $1,700 overnight bill?",
+    answer: "Partially. Drift detection fires at session end. It'll catch the runaway session *after* it's done. The cost prevention story is mostly retry_loop (fires within seconds of the loop starting) and cost_budget_session/cost_budget_daily (fires when burn rate exceeds a threshold). Drift is for catching the *slow* failure. The one where the agent's behavior has been shifting for two days and nobody noticed until the bill arrived. Different alert, different timescale, same architectural premise."
+  },
+  {
+    question: "What does the GH #40801 quote actually measure?",
+    answer: "The author of that issue was tracking specific rule violations against rules they'd written in CLAUDE.md, across one long Claude Code session that included two compaction events. Compliance was hand-scored on each rule. The numbers. 100% → 50% → 20%. Are a single-user measurement, not a controlled study. But they capture an effect that many Claude Code users describe. TokenJam doesn't measure rule compliance directly; we measure the behavioral signals that correlate with it, which is the practical observable."
+  }
+]} />
+
+## Further reading
+
+- [Claude Code Issue #40801. Context compaction degrades rule compliance](https://github.com/anthropics/claude-code/issues/40801). The source quote.
+- [I let Claude Code run overnight in --dangerously-skip-permissions](/blog/2026-05-15-overnight-claude-code-bill). The launch post.
+- [LangSmith TCO teardown](/blog/2026-05-15-langsmith-tco-teardown). Pricing piece.
+- [OpenTelemetry for AI agents](/blog/2026-05-10-opentelemetry-for-ai-agents). The OTel substrate this all sits on.
+- [What is agent observability?](/blog/2026-05-09-agent-observability). Category background.

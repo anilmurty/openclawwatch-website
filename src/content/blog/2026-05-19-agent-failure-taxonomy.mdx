@@ -1,0 +1,345 @@
+---
+title: "The taxonomy of agent failure: 13 named alerts beat 'anomaly detected' at 2am"
+description: "Every AI observability vendor ships 'anomaly detected.' That's the wrong abstraction for autonomous agents. Here's the typed vocabulary we ship instead. 13 named failure modes, each with its own trigger, payload, and prescribed response."
+author: "ansh-saxena"
+publishDate: 2026-05-19
+tags: ["agent-failure", "alerts", "taxonomy", "claude-code", "tokenjam"]
+pillar: "guardrails"
+image: "/blog/agent-observability.jpg"
+draft: false
+---
+
+import TLDR from '@/components/TLDR.astro';
+import Callout from '@/components/Callout.astro';
+import FAQBlock from '@/components/FAQBlock.astro';
+
+<TLDR>
+- **The category-level failure is the alert message itself.** "Anomaly detected" is the dominant vocabulary across LangSmith, Langfuse, Helicone, Arize, AgentOps, Comet Opik. At 2am, that string does not tell you whether to (a) cancel the run, (b) ignore it, or (c) page a teammate. It is a tooltip, not an alert.
+- We ship a typed vocabulary instead. 13 alert types, each with a noun for the failure mode and a prescribed first-look. `retry_loop`, `cost_budget_session`, `cost_budget_daily`, `sensitive_action`, `failure_rate`, `session_duration`, `schema_violation`, `drift_detected`, `network_egress_blocked`, `filesystem_access_denied`, `syscall_denied`, `inference_rerouted`, `token_anomaly`.
+- Each one names a specific shape of failure that someone in the audience has actually been burned by. They're not theoretical. They're a compression of the [$84](https://medium.com/@hiimsix/the-solo-developers-guide-to-agent-observability-without-the-sdk-tax-7f1dcf21bd5d) → [$437](https://dev.to/magicrails/i-let-my-ai-agent-run-overnight-it-cost-437-dd7) → [$1,700](https://github.com/anthropics/claude-code/issues/37686) → [$47,000](https://dev.to/dingdawg/how-an-ai-agent-ran-up-a-47000-bill-in-11-days-and-how-to-stop-it-1fk) horror-story corpus into a vocabulary the alert message can speak.
+- This post walks each one. What it watches. What fires it. What the message looks like. What you should do when you see it. And honestly, which two of the 13 are partial today.
+</TLDR>
+
+## "Anomaly detected" is the alert equivalent of "An error occurred"
+
+Open any LLM observability dashboard and the alert taxonomy reduces to some variant of "anomaly detected on this trace." Sometimes there's a severity. Sometimes there's a metric the anomaly was on. Rarely is there a *noun*.
+
+This is the same architectural choice as a UI that shows "An error occurred. Please try again." It is technically correct and operationally useless. The work of distinguishing *which kind* of failure happened is left to the human reading the dashboard at 2am. Which is exactly when the human is least equipped to do that work.
+
+For autonomous agents this is a worse trade than usual because the failure modes are knowable. The same six or seven incidents keep happening across the entire community, with the same shape, fluffed out by different dollar amounts:
+
+- **$800 overnight retry loop on r/nocode.** "I woke up to $800+ in charges and a very unhappy credit card. A retry loop got stuck... ~6 hours while I was asleep. No alerts. No circuit breaker. No cap." ([r/nocode](https://www.reddit.com/r/nocode/comments/1s8h1v5/my_ai_agent_silently_burned_800_in_api_calls/))
+- **$1,700 ralph loop on Claude Code.** "I tried a ralph loop overnight for the first time and woke up to $1700 worth of charges." ([Claude Code GH #37686](https://github.com/anthropics/claude-code/issues/37686))
+- **$47,000 LangChain retry loop over 11 days.** "The team had logging. They had monitoring. They did not have a hard limit." ([dev.to](https://dev.to/dingdawg/how-an-ai-agent-ran-up-a-47000-bill-in-11-days-and-how-to-stop-it-1fk))
+- **$50/day silent generation with zero side effects.** "Logs said 'done.' Vault was empty." ([r/AI_Agents](https://www.reddit.com/r/AI_Agents/comments/1rzd5pn/my_ai_agents_burned_50day_doing_nothing_so_i/))
+- **233 ghost subagents nobody spawned.** "233 background agents I never asked for consumed 23% of my agent token spend." ([r/ClaudeAI](https://www.reddit.com/r/ClaudeAI/comments/1rwdahm/i_analyzed_77_claude_code_sessions_233_ghost.json))
+- **Rule compliance collapse after compaction.** "Compliance starts at 100% in the first 30 minutes → drops to 50–60% after first compaction → hits 20% after second compaction." ([Claude Code GH #40801](https://github.com/anthropics/claude-code/issues/40801))
+
+These aren't anomalies. They're *known shapes*. You can write them down. You can give each one a name. You can fire alerts that include the noun.
+
+That's what we did. Below is the actual list, what triggers each, and what the alert message says.
+
+## What "type" buys you that "severity" doesn't
+
+Before walking the 13, it's worth being explicit about why a typed vocabulary matters more than a severity score.
+
+Severity is one-dimensional. Two failures with the same severity can require completely different responses. A `sensitive_action` (the agent wants to `rm -rf` your home directory) and a `failure_rate` (20% of the last 20 spans returned errors) might both fire at `critical`. But one needs you to cancel the agent in the next 30 seconds and the other can probably wait until morning.
+
+A typed vocabulary gives you four things severity doesn't:
+
+1. **A noun in the alert message.** "retry_loop on `claude-code-overnight`" is something you can read on a phone notification and act on. "anomaly detected, severity critical" is something you have to open the dashboard to interpret.
+2. **A different prescribed first-look per type.** `retry_loop` → cancel and inspect last 4 tool calls. `drift_detected` → compare session stats to baseline. `sensitive_action` → cancel immediately, audit what the agent has touched. Each type has its own runbook.
+3. **Stable cross-tool labeling.** When two devs in your Discord both post "I got `retry_loop` last night," they're talking about the same thing. "Anomaly" doesn't have that property.
+4. **A debug surface the agent itself can consume.** Our MCP server exposes `tj_alerts()` to the running agent. A typed list of "the last 3 alerts were `retry_loop`, `retry_loop`, `cost_budget_session`" is something an agent can reason about. A list of three `anomaly`s is not.
+
+That's why this list is opinionated. We could have shipped one generic alert with a `category` tag and let users define their own taxonomy. We didn't because *the taxonomy is the product*. The whole pitch is "name the failure modes nobody else names."
+
+## The 13 alerts, walked
+
+The implementation is in [`tokenjam/core/alerts.py`](https://github.com/Metabuilder-Labs/tokenjam). All 13 are wired to the same dispatch layer (stdout, file, ntfy, Discord, Telegram, webhook) with per-type severity gates and cooldown.
+
+### 1. `retry_loop`. The canonical autonomous-agent failure
+
+**What it watches:** identical tool calls repeating in a short window.
+
+**Trigger:** 4 identical `gen_ai.tool.call` spans in the last 6 spans within a session. Same tool name, same arguments hash. Threshold configurable per-agent.
+
+**Why this exact rule:** Empirically, real retry loops are tighter than this. They often repeat the same call 10 or 20 times in a row. 4 in 6 catches them very early and keeps false-positive rate down. The author of [GH #37686](https://github.com/anthropics/claude-code/issues/37686) would have gotten an alert in the first minute of the ralph loop. The bill stops at single-digit dollars instead of $1,700.
+
+**Alert payload includes:** tool name, arg hash, last 6 span IDs, total cost burned by the loop so far, the trace ID.
+
+**What you should do:** cancel the run. Open the trace at the loop start. Usually one of three things: the tool returned an error the agent didn't recognize as terminal, the agent hallucinated a follow-up step, or a downstream service is rate-limiting and the agent is retrying through the rate limit.
+
+### 2. `cost_budget_session`. The per-session brake pedal
+
+**What it watches:** accumulated USD cost for the current session.
+
+**Trigger:** session cost crosses a configurable threshold (default: the per-session limit in `~/.tj/config.toml` for that agent).
+
+**Why this exists when `--max-budget-usd` exists:** Anthropic's cap is the ceiling. This alert is the brake pedal. You set `cost_budget_session` *below* the cap so you hear about the burn while there's still room. Caps tell you when you've crashed. Budget alerts tell you when you're speeding.
+
+**Alert payload includes:** session ID, accumulated cost, threshold, time to threshold, projected end-of-session cost at current burn rate.
+
+**What you should do:** check `tj cost --session <id>` for cost breakdown by model and tool. Decide whether to let the session continue or cancel.
+
+### 3. `cost_budget_daily`. The slower-burn version
+
+**What it watches:** accumulated USD cost across all sessions today for an agent (or globally).
+
+**Trigger:** daily cost crosses configured threshold.
+
+**Why both `session` and `daily`:** the [r/AI_Agents $50/day case](https://www.reddit.com/r/AI_Agents/comments/1rzd5pn/my_ai_agents_burned_50day_doing_nothing_so_i/) wasn't one expensive session. It was many small ones, none individually alarming, summing to $50 of generated-but-never-executed CLI commands. Session-level budgets miss this entirely.
+
+**Alert payload includes:** agent name, today's total, threshold, session count contributing, top-3 session IDs by cost.
+
+**What you should do:** check `tj cost --agent <name> --since today` for the breakdown. Frequently this catches the "many small sessions that didn't actually do anything" failure mode.
+
+### 4. `sensitive_action`. The audit lane
+
+**What it watches:** tool calls that touch dangerous surfaces. Shell calls with `rm`, `chmod 777`, `curl | sh`. Filesystem writes to `~/.ssh`, `~/.aws`, `~/.config`. Network calls to non-allowlisted hosts. Process execution of binaries outside the project tree.
+
+**Trigger:** pattern match on `gen_ai.tool.call` arguments.
+
+**Why this matters:** most autonomous runs never need any of those. When one does, you want a notification, not a fait accompli. The author of any of the "the agent decided to delete my home folder" Twitter threads would have appreciated 30 seconds of warning.
+
+**Alert payload includes:** tool name, full arguments, which rule matched, working directory.
+
+**What you should do:** depends on the action. For an `rm` outside the project tree, cancel and audit. For a write to `~/.ssh/known_hosts`, decide whether that's expected behavior of your agent. The point isn't to block; it's to surface.
+
+### 5. `failure_rate`. The silent-error tell
+
+**What it watches:** percentage of recent spans returning errors.
+
+**Trigger:** > 20% of the last 20 spans have `status.code = ERROR`.
+
+**Why 20% / 20:** smaller windows trip on legitimate one-off errors (a single failing API call). Larger windows lag too much. 20/20 is calibrated against real Claude Code session histories. Normal sessions sit well under 5% error rate, failing sessions blow past 20% immediately.
+
+**Alert payload includes:** error rate percentage, sample error messages, the tool with highest error rate.
+
+**What you should do:** check whether one tool is consistently failing (often: a misconfigured API key, a rate limit) or many tools are failing (often: network is down, the agent is in a bad branch).
+
+### 6. `session_duration`. The runaway-session catch
+
+**What it watches:** wall-clock duration of an active session.
+
+**Trigger:** session has been running longer than the configured cap (default 3600s = 1 hour).
+
+**Why duration when you already have cost:** cheap models can run for hours without tripping cost alerts. The [r/nocode 6-hour retry loop](https://www.reddit.com/r/nocode/comments/1s8h1v5/my_ai_agent_silently_burned_800_in_api_calls/) is the canonical example. Cost was actually the trailing indicator; duration was the leading one.
+
+**Alert payload includes:** session start time, duration so far, current tool call rate, model used.
+
+**What you should do:** decide whether this is a legitimate long session (rare; usually fine-tuning runs or long-context analysis) or a runaway (common; cancel and inspect).
+
+### 7. `schema_violation`. The structured-output guard *(partial today)*
+
+**What it watches:** tool output JSON that doesn't validate against a declared or genson-inferred schema.
+
+**Trigger:** `gen_ai.tool.output` attribute fails JSON schema validation.
+
+**Honesty box:** this alert is **partial in the default configuration**. Schema validation requires `capture.tool_outputs = true` in `.tj/config.toml`, which defaults to `false` to keep raw tool outputs out of the local DB. When it's on, the validator works as advertised; when it's off, the alert never fires because the validator never sees the data. We're tracking the right default in the open-questions list. There's a privacy / disk-cost tradeoff we haven't fully resolved.
+
+**Alert payload (when active) includes:** schema path, validation error, the offending JSON.
+
+**What you should do:** decide whether the schema is wrong or the output is wrong. Often: the model hallucinated a field name and the downstream consumer is about to crash.
+
+### 8. `drift_detected`. Behavioral drift across sessions
+
+**What it watches:** per-agent session statistics drifting from a baseline built over N completed sessions.
+
+**Trigger:** Z-score > 3 on any of (input_tokens, output_tokens, session_duration, tool_call_count) OR Jaccard similarity on the tool-set < 0.5 vs baseline.
+
+**Why this exists:** the [post-compaction rule-compliance collapse on GH #40801](https://github.com/anthropics/claude-code/issues/40801) is one specific shape of this. The general case is: the agent's *action distribution* is shifting and you want to know before the bill arrives. We wrote a dedicated [deep-dive on drift detection](/blog/2026-05-17-behavioral-drift-detection) covering the math.
+
+**Alert payload includes:** Z-score per metric with baseline μ/σ, Jaccard similarity, suspected failure-mode hypothesis from a lookup table.
+
+**What you should do:** open `tj drift report` and `tj trace <id>` for the offending session. Compare to a recent in-baseline session.
+
+### 9. `network_egress_blocked`. Sandbox-aware
+
+**What it watches:** outbound network attempts that the host policy or NemoClaw sandbox blocked.
+
+**Trigger:** sandbox event with `event.kind = network.blocked`.
+
+**Why this is its own alert:** an agent reaching for `dropbox.com` or `pastebin.com` from a job that should be staying inside your repo is a signal worth a notification. The block already happened (good); you want to know it tried (also important).
+
+**Alert payload includes:** destination host, port, source span, the policy rule that blocked it.
+
+**What you should do:** decide whether to extend the allowlist or to investigate why the agent tried.
+
+### 10. `filesystem_access_denied`. Sandbox-aware
+
+**What it watches:** filesystem write/read attempts the sandbox denied.
+
+**Trigger:** sandbox event with `event.kind = filesystem.denied`.
+
+**Why this and not just `sensitive_action`:** `sensitive_action` is *pattern-based* on the agent's outbound calls. `filesystem_access_denied` is *event-based* from the sandbox observer. They catch the same class of failure from opposite directions. One upstream, one downstream. And you want both for defense-in-depth.
+
+**Alert payload includes:** path, operation (read/write/exec), source span, sandbox rule.
+
+### 11. `syscall_denied`. The lower-level sibling
+
+**What it watches:** syscalls the sandbox blocked (typically via seccomp or NemoClaw's OpenShell Gateway).
+
+**Trigger:** sandbox event with `event.kind = syscall.denied`.
+
+**Why this exists separately:** for users running with strict seccomp profiles. Most indies don't see this fire because they're not running in a hardened sandbox. Operators with one will recognize the value immediately.
+
+### 12. `inference_rerouted`. The model-routing surprise
+
+**What it watches:** the actual model an LLM call landed on, vs the model the agent thought it was calling.
+
+**Trigger:** `gen_ai.response.model` differs from `gen_ai.request.model` in a meaningful way (e.g., requested Opus, got Sonnet because of a fallback, or hit a different model via a gateway re-route).
+
+**Why this matters:** with LLM gateways increasingly between agents and providers, a request for `claude-opus-4-7` can land on `claude-haiku-4` because of routing rules, quota fallbacks, or a misconfigured gateway. The cost and behavior implications are significant. Provider invoices won't separate them clearly.
+
+**Alert payload includes:** requested model, actual model, gateway (if any), span ID.
+
+### 13. `token_anomaly`. The dead-enum honesty box
+
+**What it watches:** sudden spikes in token consumption for a single span vs typical span sizes.
+
+**Honest status:** this alert type is registered in `core/models.py` and referenced in some documentation, but the current dispatch path fires `drift_detected` for the cross-session version of "tokens are wrong" and doesn't have a per-span trigger wired. We're [tracking it in the features inventory](https://github.com/Metabuilder-Labs/tokenjam) as a known cleanup. Either wire the per-span trigger or remove the enum. Both are honest moves. Deciding before the next minor bump.
+
+We left it in this taxonomy list rather than redact it because the operating principle is to be honest about what's partial. Hiding it would be the kind of marketing hygiene we generally don't do.
+
+## The honesty table: which of the 13 are fully live vs partial
+
+| Alert | Status | Notes |
+|---|---|---|
+| `retry_loop` | live | core differentiator |
+| `cost_budget_session` | live | requires per-agent budget configured |
+| `cost_budget_daily` | live | requires per-agent budget configured |
+| `sensitive_action` | live | rule set is open to PRs |
+| `failure_rate` | live | 20/20 default tuned on real sessions |
+| `session_duration` | live | default 3600s, per-agent override |
+| `schema_violation` | partial | needs `capture.tool_outputs = true` |
+| `drift_detected` | live | baseline at N ≥ 10 sessions |
+| `network_egress_blocked` | live (sandbox-only) | NemoClaw or seccomp users |
+| `filesystem_access_denied` | live (sandbox-only) | NemoClaw or seccomp users |
+| `syscall_denied` | live (sandbox-only) | seccomp users |
+| `inference_rerouted` | live | most useful behind a gateway |
+| `token_anomaly` | dormant | enum registered, trigger TBD |
+
+11 of 13 are live in the indie / Claude Code default path. The two partials have an honest status and a tracked owner.
+
+## What the alert message actually looks like
+
+The whole point of the taxonomy is the alert payload. Here's the Discord message for `retry_loop`:
+
+```
+🚨 retry_loop. Agent: claude-code-overnight  session: 2026-05-19-0214
+   Tool: bash  args_hash: a4f2…91c
+   Last 6 spans: 4 identical calls to bash with args "git fetch origin"
+   Cost burned by this loop so far: $3.47
+   Projected to threshold ($25): ~12 more minutes at current rate
+   Inspect: tj trace 2026-05-19-0214
+   Cancel: tj cancel 2026-05-19-0214
+```
+
+Compare to the generic equivalent:
+
+```
+🚨 Anomaly detected. Trace 2026-05-19-0214. Severity: critical
+```
+
+The second one doesn't tell you what tripped, what cost so far, what the prescribed first-look is, or how to cancel. You have to open the dashboard. At 2am.
+
+This is most of the value.
+
+## How this lives next to LangSmith, Langfuse, and Arize
+
+To be fair to the other vendors: the absence of a typed taxonomy isn't laziness, it's a different product shape. The dashboard-first vendors are optimizing for the *review* loop. Open the trace, scroll, annotate, score, send to evals. The alert is a secondary surface; the dashboard is the primary one.
+
+We're optimizing for the *runtime* loop. The phone is the primary surface; the dashboard is the secondary one. That inverts the priority: the alert message has to do most of the work because that's where attention lives.
+
+The two product shapes can absolutely coexist. We run TokenJam alongside whatever else a team uses for review (Langfuse self-hosted is a popular pairing for the indies who graduate to small-team scale). The taxonomy doesn't replace span review. It replaces "anomaly detected" as the *alert* primitive.
+
+## Where the taxonomy goes next
+
+Three things on the roadmap that would extend the list without bloating it.
+
+1. **Provider-side rate limits.** The signal is on the wire. 429 responses from Anthropic, OpenAI, etc. We currently fold them into `failure_rate`. A dedicated `provider_rate_limited` alert would let you respond differently (back off, switch model, cancel).
+2. **Subagent explosion.** The [233 ghost agents](https://www.reddit.com/r/ClaudeAI/comments/1rwdahm/i_analyzed_77_claude_code_sessions_233_ghost.json) failure mode deserves its own type. We can detect it (count of distinct child sessions per parent), we just haven't named it.
+3. **Schema-drift.** Schema *violation* is one event. Schema *drift*. Outputs that validate today but are systematically different from baseline outputs. Is a related but distinct shape. Cross-fertilization with the drift detector.
+
+None of these are urgent. The current 13 cover the published horror-story corpus comprehensively. The point of releasing the vocabulary is to invite the community to name the failure modes that aren't on the list yet.
+
+## How to try it
+
+The alerts ship configured by default in the Claude Code onboarding path:
+
+```bash
+pip install tokenjam
+tj onboard --claude-code
+tj demo run retry-loop    # fires `retry_loop` to your default channel
+tj demo run surprise-cost # fires `cost_budget_session`
+```
+
+Each demo runs entirely in-memory with no API keys, so you can verify the Discord/ntfy webhook is wired before you ever point a real agent at it. The 60-second video version lives on [the launch post](/blog/2026-05-15-overnight-claude-code-bill).
+
+Configuration for every threshold is in `~/.tj/config.toml` once `tj onboard` writes it. Override per-agent if you want different thresholds for, say, a long-running research crew vs an interactive Claude Code session.
+
+## The wider point
+
+"Anomaly detected" is the alert equivalent of `try { ... } catch (e) { log(e) }`. It compiles. It runs. It tells you something happened. It does not help you decide what to do next.
+
+A typed vocabulary for autonomous-agent failure isn't novel statistics. It's just a willingness to name the failure modes the community keeps describing, and put those names in the message that wakes you up at 2am.
+
+If we missed one. If your specific incident doesn't fit any of `retry_loop`, `cost_budget_session`, `cost_budget_daily`, `sensitive_action`, `failure_rate`, `session_duration`, `schema_violation`, `drift_detected`, `network_egress_blocked`, `filesystem_access_denied`, `syscall_denied`, `inference_rerouted`, or `token_anomaly`. Open an issue. We'd rather grow the list to fit reality than make reality fit the list.
+
+```bash
+pip install tokenjam
+tj onboard --claude-code
+```
+
+- **GitHub:** [Metabuilder-Labs/tokenjam](https://github.com/Metabuilder-Labs/tokenjam)
+- **The launch post:** [I let Claude Code run overnight in --dangerously-skip-permissions](/blog/2026-05-15-overnight-claude-code-bill)
+- **Drift deep-dive:** [Behavioral drift detection](/blog/2026-05-17-behavioral-drift-detection)
+- **How-to:** [How to monitor Claude Code](/blog/2026-05-15-how-to-monitor-claude-code)
+
+## Common questions
+
+<FAQBlock items={[
+  {
+    question: "Why 13 alerts and not 5? Or 50?",
+    answer: "13 is what fell out of the published horror-story corpus when we sat down and asked 'what's the noun for this incident?' We didn't pick the number. We picked the incidents. Five would have merged failure modes that need different responses (retry_loop and failure_rate would have collapsed, losing the response distinction). 50 would have started inventing categories. The right test for adding a 14th is whether someone in the audience has been burned by a shape that none of the current 13 names."
+  },
+  {
+    question: "Can I disable alerts I don't want?",
+    answer: "Yes. Every alert type has a per-type enable/disable in ~/.tj/config.toml plus per-agent overrides. The defaults are tuned for indie Claude Code operators. If you're running a different shape (say, a long-running research agent with no shell tool calls), turn off sensitive_action and turn down session_duration."
+  },
+  {
+    question: "What happens when an alert fires but I'm asleep?",
+    answer: "The alert dispatches to whatever channel you configured (Discord webhook, ntfy topic, Telegram bot) and a record persists in the local DuckDB. The CooldownTracker keeps the same alert from re-firing every 30 seconds in a loop. When you wake up, tj alerts list shows you everything that fired overnight with the full payload. The product assumption is that at least one channel reaches your phone."
+  },
+  {
+    question: "Does this work with non-Claude-Code agents?",
+    answer: "Yes. The alert pipeline operates on OTel spans, so any agent that emits gen_ai.* attributes (LangChain, LangGraph, CrewAI, AutoGen, Codex CLI, anything OTLP-compliant) goes through the same evaluator. Some of the sensitive_action rules are tuned for shell-tool-using agents. Research agents that only do retrieval may want a different rule set."
+  },
+  {
+    question: "How is this different from severity-based alerting in LangSmith or Langfuse?",
+    answer: "Severity collapses 'kind of failure' and 'how bad' onto one axis. A typed taxonomy keeps them separate. Retry_loop and sensitive_action can both be severity=critical but they need different responses. Severity-based alerting forces you to encode the response in the dashboard runbook. A typed taxonomy lets you encode it in the alert message itself, which is where attention actually lives at 2am."
+  },
+  {
+    question: "Why are schema_violation and token_anomaly only partially live?",
+    answer: "schema_violation requires capture.tool_outputs=true in config, which defaults to false for privacy and disk-cost reasons. When you flip it on, schema validation runs as advertised. Token_anomaly is registered as an enum but the per-span trigger isn't wired. The cross-session version of 'tokens are wrong' fires as drift_detected. We're going to either wire the per-span trigger or remove the enum in the next minor release. Surfacing it as partial in this post is preferable to discovering it in your config the hard way."
+  }
+]} />
+
+## Sources
+
+- [Claude Code GH #37686](https://github.com/anthropics/claude-code/issues/37686). The $1,700 overnight ralph loop.
+- [Claude Code GH #40801](https://github.com/anthropics/claude-code/issues/40801). Post-compaction rule degradation.
+- [r/nocode: $800 overnight retry loop](https://www.reddit.com/r/nocode/comments/1s8h1v5/my_ai_agent_silently_burned_800_in_api_calls/).
+- [r/AI_Agents: $50/day silent generation](https://www.reddit.com/r/AI_Agents/comments/1rzd5pn/my_ai_agents_burned_50day_doing_nothing_so_i/).
+- [r/ClaudeAI: 233 ghost subagents](https://www.reddit.com/r/ClaudeAI/comments/1rwdahm/i_analyzed_77_claude_code_sessions_233_ghost.json).
+- [dev.to: $47,000 LangChain retry loop](https://dev.to/dingdawg/how-an-ai-agent-ran-up-a-47000-bill-in-11-days-and-how-to-stop-it-1fk).
+- [dev.to: I let my AI agent run overnight, it cost $437](https://dev.to/magicrails/i-let-my-ai-agent-run-overnight-it-cost-437-dd7).
+- [Medium: $84 in one afternoon](https://medium.com/@hiimsix/the-solo-developers-guide-to-agent-observability-without-the-sdk-tax-7f1dcf21bd5d).
+
+## Further reading
+
+- [I let Claude Code run overnight in --dangerously-skip-permissions](/blog/2026-05-15-overnight-claude-code-bill).
+- [Behavioral drift detection: Z-scores and Jaccard similarity](/blog/2026-05-17-behavioral-drift-detection).
+- [How to monitor Claude Code](/blog/2026-05-15-how-to-monitor-claude-code).
+- [LangSmith TCO teardown: 10.7x the sticker](/blog/2026-05-15-langsmith-tco-teardown).
