@@ -1,0 +1,335 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+
+const installLines = [
+  'pip install "tokenjam[mcp]"',
+  'tj onboard --claude-code',
+  'tj optimize',
+];
+const installJoined = installLines.join('\n');
+---
+<BaseLayout
+  title="TokenJam for Claude Code — see where your tokens go"
+  description="See where your Claude Code tokens are going and what you could save. Local. Three commands. No signup."
+>
+  <section class="cc-page">
+    <div class="cc-inner">
+      <header class="cc-hero">
+        <h1>
+          <span class="cc-h1-line cc-h1-line-1">You don't know where your Claude Code tokens are going.</span>
+          <span class="cc-h1-line cc-h1-line-2">TokenJam does.</span>
+        </h1>
+        <p class="cc-sub">See where your spend goes and what you could save — locally, in three commands.</p>
+      </header>
+
+      <div class="cc-terminal-wrap">
+        <div class="terminal cc-terminal">
+          <div class="terminal-titlebar">
+            <div class="dot dot-r"></div>
+            <div class="dot dot-y"></div>
+            <div class="dot dot-g"></div>
+            <span class="terminal-title">tj — bash</span>
+          </div>
+          <div class="terminal-body cc-terminal-body" id="cc-terminal-body"></div>
+        </div>
+      </div>
+
+      <div class="cc-getstarted">
+        <div class="terminal cc-install">
+          <div class="terminal-titlebar">
+            <div class="dot dot-r"></div>
+            <div class="dot dot-y"></div>
+            <div class="dot dot-g"></div>
+            <span class="terminal-title">install</span>
+          </div>
+          <div class="terminal-body cc-install-body">
+            {installLines.map((cmd) => (
+              <span class="tline"><span class="t-prompt">$ </span><span class="t-cmd">{cmd}</span></span>
+            ))}
+          </div>
+        </div>
+
+        <div class="cc-ctas">
+          <button class="cc-cta-primary" id="cc-copy-btn" data-cmd={installJoined} type="button">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="4" width="8" height="8" rx="1.5"/><path d="M2 10V3a1 1 0 011-1h7"/></svg>
+            <span id="cc-copy-label">Copy install commands</span>
+          </button>
+          <a class="cc-cta-secondary" href="https://github.com/Metabuilder-Labs/tokenjam" target="_blank" rel="noopener noreferrer">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+            <span>Star on GitHub</span>
+            <span class="cc-star-count" id="cc-star-count" aria-hidden="true"></span>
+          </a>
+        </div>
+
+        <p class="cc-trust">No signup. Runs locally. MIT licensed.</p>
+      </div>
+    </div>
+  </section>
+
+  <style is:global>
+    .terminal {
+      background: var(--navy-3);
+      border: 1px solid rgba(var(--accent-rgb),0.2);
+      border-radius: 12px;
+      overflow: hidden;
+      max-width: 100%;
+      box-shadow:
+        0 0 0 1px rgba(var(--accent-rgb),0.08),
+        0 24px 60px rgba(0,0,0,0.45),
+        0 0 80px rgba(var(--accent-rgb),0.08);
+      font-family: 'Geist Mono', monospace;
+      font-size: 13px;
+      line-height: 1.7;
+    }
+    .terminal-titlebar {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 14px;
+      background: rgba(var(--accent-rgb),0.05);
+      border-bottom: 1px solid rgba(var(--accent-rgb),0.12);
+    }
+    .dot { width: 11px; height: 11px; border-radius: 50%; }
+    .dot-r { background: #ff5f57; }
+    .dot-y { background: #ffbd2e; }
+    .dot-g { background: #28c840; }
+    .terminal-title {
+      flex: 1; text-align: center;
+      font-size: 12px;
+      color: rgba(var(--accent-rgb),0.3);
+      margin-left: -55px;
+    }
+    .terminal-body {
+      padding: 18px 22px;
+      overflow: hidden;
+      text-align: left;
+      max-width: 100%;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+    .tline { display: block; transition: opacity 0.2s ease; }
+    .tline-hidden { opacity: 0; }
+    .t-prompt { color: rgba(var(--accent-rgb),0.7); }
+    .t-cmd { color: var(--white); }
+    .t-success { color: var(--green); }
+    .t-warn { color: var(--amber); }
+    .t-dim { color: rgba(var(--accent-rgb),0.35); }
+    .t-blue { color: var(--blue); }
+    .t-val { color: var(--white-dim); }
+    .t-label { color: rgba(var(--accent-rgb),0.5); font-size: 11px; }
+  </style>
+
+  <style>
+    main.tj-main { padding: 0; }
+    .cc-page {
+      min-height: calc(100vh - 64px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 20px;
+      background: var(--navy);
+    }
+    .cc-inner {
+      width: 100%;
+      max-width: 780px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .cc-hero { text-align: center; }
+    .cc-hero h1 {
+      margin: 0;
+      font-family: 'Geist', sans-serif;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      line-height: 1.1;
+    }
+    .cc-h1-line { display: block; }
+    .cc-h1-line-1 { font-size: clamp(22px, 3.4vw, 34px); color: var(--white); }
+    .cc-h1-line-2 { font-size: clamp(22px, 3.4vw, 34px); color: var(--white); margin-top: 4px; }
+    .cc-sub {
+      margin: 12px 0 0;
+      color: var(--white-dim);
+      font-size: clamp(13px, 1.4vw, 15px);
+    }
+
+    .cc-terminal-wrap { width: 100%; }
+    .cc-terminal {
+      font-size: 12px;
+      line-height: 1.55;
+    }
+    .cc-terminal-body {
+      padding: 16px 20px;
+      height: 280px;
+      overflow: hidden;
+    }
+
+    .cc-getstarted {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      align-items: center;
+    }
+    .cc-install {
+      width: 100%;
+      font-size: 12px;
+      line-height: 1.65;
+    }
+    .cc-install-body {
+      padding: 12px 20px;
+      height: auto;
+    }
+
+    .cc-ctas {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .cc-cta-primary, .cc-cta-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-family: 'Geist', sans-serif;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: none;
+      border: 1px solid rgba(var(--accent-rgb),0.2);
+      transition: all 0.15s;
+    }
+    .cc-cta-primary {
+      background: var(--white);
+      color: var(--navy);
+      border-color: var(--white);
+    }
+    .cc-cta-primary:hover { opacity: 0.9; }
+    .cc-cta-secondary {
+      background: transparent;
+      color: var(--white);
+    }
+    .cc-cta-secondary:hover { border-color: rgba(var(--accent-rgb),0.4); }
+    .cc-star-count {
+      padding: 2px 8px;
+      background: rgba(var(--accent-rgb),0.08);
+      border-radius: 999px;
+      font-family: 'Geist Mono', monospace;
+      font-size: 11px;
+      color: var(--white-dim);
+      min-width: 24px;
+      text-align: center;
+    }
+    .cc-star-count:empty { display: none; }
+
+    .cc-trust {
+      margin: 4px 0 0;
+      font-size: 12px;
+      color: var(--white-dim);
+      text-align: center;
+    }
+
+    @media (max-width: 640px) {
+      .cc-page { padding: 20px 14px; min-height: auto; }
+      .cc-terminal { font-size: 10.5px; }
+      .cc-terminal-body { height: 240px; padding: 12px 14px; }
+      .cc-install { font-size: 11px; }
+      .cc-install-body { padding: 10px 14px; }
+    }
+    @media (max-height: 780px) and (min-width: 641px) {
+      .cc-terminal-body { height: 240px; }
+    }
+  </style>
+
+  <script is:inline define:vars={{ installJoined }}>
+    (function () {
+      const body = document.getElementById('cc-terminal-body');
+      if (!body) return;
+
+      const lines = [
+        { txt: '$ tj optimize --agent claude-code-myproj', c: ['t-prompt','t-cmd'], delay: 0 },
+        { txt: '', delay: 700 },
+        { txt: 'Analyzing 39 sessions, 1.8M tokens, $160.35 spend (last 30d)...', c: ['t-dim'], delay: 900 },
+        { txt: '', delay: 1500 },
+        { txt: '  ① Model downgrade: 13% of sessions match a smaller-model candidate shape', c: ['t-label'], delay: 1800 },
+        { txt: '     • 5 of 39 sessions matched structural heuristics', c: ['t-blue'], delay: 2100 },
+        { txt: '     • Projected savings if pattern holds: $2,043/mo', c: ['t-success'], delay: 2400 },
+        { txt: '     • Pattern: claude-opus-4-7 → claude-haiku-4-5', c: ['t-blue'], delay: 2700 },
+        { txt: '', delay: 3000 },
+        { txt: '     Examples:', c: ['t-dim'], delay: 3100 },
+        { txt: '       2cce7903..  2 tool calls   0.8s   $0.45  (claude-opus-4-7)', c: ['t-val'], delay: 3300 },
+        { txt: '       e292ccbe..  2 tool calls   0.8s   $0.45  (claude-opus-4-7)', c: ['t-val'], delay: 3500 },
+        { txt: '       d59cb502..  2 tool calls   0.8s   $0.45  (claude-opus-4-7)', c: ['t-val'], delay: 3700 },
+        { txt: '', delay: 3900 },
+        { txt: '  ② Budget projection (anthropic, $200/cycle): projected to exceed budget', c: ['t-label'], delay: 4100 },
+        { txt: '     • Monthly run rate: $4,287 (21x the budget)', c: ['t-warn'], delay: 4400 },
+        { txt: '     • At current pace, exhausted ~1.4 days into cycle', c: ['t-warn'], delay: 4700 },
+        { txt: '     • Projected overage: $4,087/mo', c: ['t-warn'], delay: 5000 },
+        { txt: '     • With model-downgrade pattern: run rate drops to $2,655/mo', c: ['t-success'], delay: 5300 },
+      ];
+
+      const PAUSE_AFTER = 6000;
+      let timers = [];
+
+      function escHtml(s) {
+        return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      }
+      function renderLine(line) {
+        if (!line.txt) return '&nbsp;';
+        const txt = line.txt;
+        if (line.c && line.c.length === 2) {
+          const m = txt.match(/^(\$\s?)(.*)$/);
+          if (m) {
+            return '<span class="' + line.c[0] + '">' + escHtml(m[1]) + '</span><span class="' + line.c[1] + '">' + escHtml(m[2]) + '</span>';
+          }
+        }
+        if (line.c) return '<span class="' + line.c[0] + '">' + escHtml(txt) + '</span>';
+        return escHtml(txt);
+      }
+
+      function play() {
+        timers.forEach(clearTimeout);
+        timers = [];
+        body.innerHTML = '';
+        let lastDelay = 0;
+        lines.forEach(function (line) {
+          const span = document.createElement('span');
+          span.className = 'tline tline-hidden';
+          span.innerHTML = renderLine(line);
+          body.appendChild(span);
+          timers.push(setTimeout(function () {
+            span.classList.remove('tline-hidden');
+          }, line.delay));
+          if (line.delay > lastDelay) lastDelay = line.delay;
+        });
+        timers.push(setTimeout(play, lastDelay + PAUSE_AFTER));
+      }
+
+      play();
+
+      const btn = document.getElementById('cc-copy-btn');
+      const label = document.getElementById('cc-copy-label');
+      if (btn) {
+        btn.addEventListener('click', function () {
+          navigator.clipboard.writeText(installJoined).then(function () {
+            const orig = label.textContent;
+            label.textContent = 'Copied!';
+            if (window.trackEvent) window.trackEvent('copy_command', 'engagement', 'claude_code_install');
+            setTimeout(function () { label.textContent = orig; }, 1500);
+          });
+        });
+      }
+
+      fetch('https://api.github.com/repos/Metabuilder-Labs/tokenjam')
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) {
+          if (!j) return;
+          const el = document.getElementById('cc-star-count');
+          if (el && typeof j.stargazers_count === 'number') {
+            el.textContent = j.stargazers_count.toLocaleString();
+          }
+        })
+        .catch(function () {});
+    })();
+  </script>
+</BaseLayout>

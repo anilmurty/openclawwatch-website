@@ -32,6 +32,10 @@ ${blogLines || '- (no posts yet)'}
 
 ${docLines}
 
+## Campaign pages
+
+- [TokenJam for Claude Code](https://tokenjam.dev/claude-code): single-screen landing for Claude Code users — what \`tj optimize\` finds and how to install in three commands.
+
 ## Optional
 
 - [GitHub](https://github.com/metabuilder-labs/tokenjam)
