@@ -9,17 +9,13 @@ const installLines = [
 const installJoined = installLines.join('\n');
 ---
 <BaseLayout
-  title="TokenJam for Claude Code — see where your tokens go"
-  description="See where your Claude Code tokens are going and what you could save. Local. Three commands. No signup."
+  title="TokenJam for Claude Code — optimize your spend in three commands"
+  description="Optimize your Claude Code spend in three commands. Local. No signup. MIT."
 >
   <section class="cc-page">
     <div class="cc-inner">
       <header class="cc-hero">
-        <h1>
-          <span class="cc-h1-line cc-h1-line-1">You don't know where your Claude Code tokens are going.</span>
-          <span class="cc-h1-line cc-h1-line-2">TokenJam does.</span>
-        </h1>
-        <p class="cc-sub">See where your spend goes and what you could save — locally, in three commands.</p>
+        <h1 class="cc-h1">Optimize your Claude Code spend in three commands.</h1>
       </header>
 
       <div class="cc-terminal-wrap">
@@ -136,20 +132,14 @@ const installJoined = installLines.join('\n');
     }
 
     .cc-hero { text-align: center; }
-    .cc-hero h1 {
+    .cc-h1 {
       margin: 0;
       font-family: 'Geist', sans-serif;
       font-weight: 700;
       letter-spacing: -0.02em;
-      line-height: 1.1;
-    }
-    .cc-h1-line { display: block; }
-    .cc-h1-line-1 { font-size: clamp(22px, 3.4vw, 34px); color: var(--white); }
-    .cc-h1-line-2 { font-size: clamp(22px, 3.4vw, 34px); color: var(--white); margin-top: 4px; }
-    .cc-sub {
-      margin: 12px 0 0;
-      color: var(--white-dim);
-      font-size: clamp(13px, 1.4vw, 15px);
+      line-height: 1.15;
+      font-size: clamp(24px, 3.6vw, 36px);
+      color: var(--white);
     }
 
     .cc-terminal-wrap { width: 100%; }
