@@ -18,6 +18,20 @@ const installJoined = installLines.join('\n');
         <h1 class="cc-h1">Optimize your Claude Code spend in three commands.</h1>
       </header>
 
+      <div class="terminal cc-install">
+        <div class="terminal-titlebar">
+          <div class="dot dot-r"></div>
+          <div class="dot dot-y"></div>
+          <div class="dot dot-g"></div>
+          <span class="terminal-title">install</span>
+        </div>
+        <div class="terminal-body cc-install-body">
+          {installLines.map((cmd) => (
+            <span class="tline"><span class="t-prompt">$ </span><span class="t-cmd">{cmd}</span></span>
+          ))}
+        </div>
+      </div>
+
       <div class="cc-terminal-wrap">
         <div class="terminal cc-terminal">
           <div class="terminal-titlebar">
@@ -31,20 +45,6 @@ const installJoined = installLines.join('\n');
       </div>
 
       <div class="cc-getstarted">
-        <div class="terminal cc-install">
-          <div class="terminal-titlebar">
-            <div class="dot dot-r"></div>
-            <div class="dot dot-y"></div>
-            <div class="dot dot-g"></div>
-            <span class="terminal-title">install</span>
-          </div>
-          <div class="terminal-body cc-install-body">
-            {installLines.map((cmd) => (
-              <span class="tline"><span class="t-prompt">$ </span><span class="t-cmd">{cmd}</span></span>
-            ))}
-          </div>
-        </div>
-
         <div class="cc-ctas">
           <button class="cc-cta-primary" id="cc-copy-btn" data-cmd={installJoined} type="button">
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="4" width="8" height="8" rx="1.5"/><path d="M2 10V3a1 1 0 011-1h7"/></svg>
@@ -118,9 +118,9 @@ const installJoined = installLines.join('\n');
     .cc-page {
       min-height: calc(100vh - 64px);
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: center;
-      padding: 32px 20px;
+      padding: 12px 20px 32px;
       background: var(--navy);
     }
     .cc-inner {
@@ -128,8 +128,9 @@ const installJoined = installLines.join('\n');
       max-width: 780px;
       display: flex;
       flex-direction: column;
-      gap: 24px;
+      gap: 20px;
     }
+    .cc-hero { margin-bottom: 20px; }
 
     .cc-hero { text-align: center; }
     .cc-h1 {
