@@ -1,0 +1,265 @@
+---
+title: "LangSmith costs $39/seat. And 10.7x that in real TCO. What self-hosted alternatives actually cost in 2026."
+description: "A pricing teardown of LangSmith (and the new SmithDB / LangSmith Engine launch), Langfuse self-host, and a local-first DuckDB alternative. Real numbers, real config, real cost-of-running."
+author: "ansh-saxena"
+publishDate: 2026-05-21
+tags: ["langsmith", "langfuse", "pricing", "observability", "tokenjam"]
+pillar: "observability"
+image: "/blog/agent-observability.jpg"
+draft: false
+---
+
+import TLDR from '@/components/TLDR.astro';
+import Callout from '@/components/Callout.astro';
+import FAQBlock from '@/components/FAQBlock.astro';
+
+<TLDR>
+- The headline LangSmith Plus price is $39/seat/month. The all-in cost. Extended traces, retention, the seats *and* the cloud bill it implies. Runs about **10.7x** the sticker for a real team ([CheckThat.ai's audit](https://www.checkthat.ai/blog/the-real-cost-of-langsmith-2025)). A team of 5 looks like $195/month at the sticker; it looks closer to $2,000/month once you count usage and overage.
+- On 2026-05-13 LangChain shipped [LangSmith Engine](https://www.langchain.com/blog/introducing-langsmith-engine) and [SmithDB](https://www.langchain.com/blog/introducing-smithdb). A new data layer for agent observability. The good news: the platform got faster. The pricing model didn't change shape.
+- Langfuse self-host is a genuine alternative. But it's [Docker Compose + ClickHouse + a Postgres + a Redis](https://langfuse.com/self-hosting/docker-compose). One weekend, then it's on your ops on-call.
+- For an indie running Claude Code on a laptop, the right shape is neither of those. It's `pip install tokenjam`, one DuckDB file, no account.
+- The numbers below are sourced. The conclusion isn't "LangSmith is bad". They have a real customer. The conclusion is that the indie / two-person-startup tier is *priced out* of every cloud option and *operationally cliffed* on every self-host option except one.
+</TLDR>
+
+## The market just moved. Pricing didn't.
+
+On May 13, 2026, LangChain shipped four launches at once. [LangSmith Engine](https://www.langchain.com/blog/introducing-langsmith-engine), [SmithDB](https://www.langchain.com/blog/introducing-smithdb), [LangSmith Sandboxes GA](https://www.langchain.com/blog/langsmith-sandboxes-generally-available), and an [LLM Gateway](https://www.langchain.com/blog/introducing-llm-gateway). It's an impressive week of engineering. SmithDB is a purpose-built data layer for "long-running agents that produce massive amounts of telemetry." Engine is the runtime substrate. The platform is faster, deeper, and more agent-aware than it was last quarter.
+
+Notice what the launches don't touch: the per-seat pricing, the per-trace overages, and the 14-day retention floor.
+
+That's the gap this post is about. The product got better. The shape of the bill didn't.
+
+## What LangSmith actually costs in 2026
+
+The public [LangSmith pricing page](https://www.langchain.com/pricing-langsmith) reads like this:
+
+| Tier | Sticker | Included | Overages |
+|---|---|---|---|
+| Developer | Free | 5k base traces / month, 14-day retention | $0.50 per 1k base traces, $4.50 per 1k extended |
+| Plus | **$39/user/month** | 10k base traces / month, 14-day retention | $0.50 per 1k base, $4.50 per 1k extended |
+| Enterprise | Custom (BYOC) | Custom | Custom |
+
+Two things to notice. First, the *per-seat* cliff: you pay $39 before you log a single trace. Five people = $195/month minimum. Ten = $390. Second, the trace pricing is two-tier: **"base" traces are short ones; "extended" traces are anything richer (multi-turn, tool-heavy, agent-style). Agents are extended.** Extended traces are 9x the cost of base traces. ([Verbatim from a 2025 Reddit thread:](https://www.reddit.com/r/LangChain/comments/1b2y18p/langsmith_started_charging_time_to_compare/) *"LangSmith pricing is punitive. $39/seat/month. Before you log a single trace. A team of 5 = $195/month just to get started."*)
+
+The deeper finding is from a [CheckThat.ai audit](https://www.checkthat.ai/blog/the-real-cost-of-langsmith-2025) published in 2025. They modeled a team running ~1M agent traces/month. Which sounds like a lot until you note that **a single Claude Code session in `--dangerously-skip-permissions` mode can emit 200-2000 spans in an hour**, and a small team running daily autonomous loops gets there inside a week. The audit's headline:
+
+> "LangSmith sticker price is misleading by an order of magnitude. Once you factor in extended traces, retention upgrades, seat scaling, and the implicit cloud bill, the real cost-of-running is **10.7x** the advertised seat price for our reference team."
+
+A team-of-5 *sticker* of $195/month became a real number closer to $2,000/month once extended trace volume and retention upgrades got added in. That's not a hidden fee or a dark pattern in the legal sense. Every line item is on the pricing page. It's that the *shape* of the bill compounds. Agents produce extended traces, and extended traces are 9x.
+
+<Callout type="note">
+What "extended" actually means in LangSmith billing terms (paraphrased from their pricing docs): a trace that exceeds a base attribute count, a base span count, or a base payload size. Agent traces almost always do. Chat-completion traces usually don't. The pricing model was designed for the latter.
+</Callout>
+
+## What the new SmithDB / LangSmith Engine launch actually fixes (and what it doesn't)
+
+To be specific about the May 13 launches:
+
+- **[LangSmith Engine](https://www.langchain.com/blog/introducing-langsmith-engine)**. A new compute substrate for trace ingestion and replay. Faster, agent-aware, supports the long-running workloads SmithDB is built for.
+- **[SmithDB](https://www.langchain.com/blog/introducing-smithdb)**. A purpose-built data layer for "the next-gen of agent observability." Long retention, deep slicing, semantic search over traces.
+- **[LangSmith Sandboxes GA](https://www.langchain.com/blog/langsmith-sandboxes-generally-available)**. Reproducible execution environments for agent runs.
+- **[LangSmith LLM Gateway](https://www.langchain.com/blog/introducing-llm-gateway)**. Runtime governance built into the agent lifecycle.
+
+These are real engineering wins. SmithDB in particular addresses a legitimate complaint about earlier LangSmith: that long agent traces were slow to query.
+
+What they do not change:
+
+1. **It is still cloud-only at the tiers a small team can afford.** Self-host is Enterprise only.
+2. **The per-seat price is still $39 before you log a trace.** Five seats = $195/month.
+3. **Extended traces are still 9x base.** Agents still produce extended traces.
+4. **Retention is still 14 days on the base tier.** Drift detection over a multi-week window needs retention you'd have to upgrade for.
+
+The new SmithDB doesn't ship to your laptop. That's the gap.
+
+## Langfuse self-host: the honest alternative
+
+[Langfuse](https://langfuse.com) is open-source (MIT), and the self-host story is real. Many teams who hit the LangSmith cliff land here. Worth being honest about what it costs operationally.
+
+The [Langfuse self-host docker-compose](https://langfuse.com/self-hosting/docker-compose). Which is the *easy* path. Requires:
+
+- A Postgres instance (operational metadata)
+- A ClickHouse cluster (trace storage. High-cardinality columnar workload)
+- A Redis (queue + cache)
+- A MinIO or S3 bucket (event blobs)
+- The Langfuse web container
+- The Langfuse worker container
+
+Six moving parts. On a laptop it's a `docker compose up`, sure. In production it's a real on-call surface. ClickHouse is the load-bearing component, and ClickHouse self-managed is not a beginner's database. There's a reason Langfuse [just got acquired by ClickHouse](https://langfuse.com/blog/joining-clickhouse). They published their own ["simplifying self-host" post](https://langfuse.com/blog/2026-03-10-simplify-langfuse-for-scale) in March 2026 acknowledging the friction.
+
+To make this concrete, here's an audit of *minimum* RAM footprint for a working Langfuse self-host vs alternatives:
+
+| Stack | Process count | Approx. RAM floor | DB stack |
+|---|---|---|---|
+| Langfuse self-host (recommended) | 6 | ~4 GB | Postgres + ClickHouse + Redis + S3 |
+| Arize Phoenix Docker | 2-3 | ~1 GB | Phoenix DB |
+| Helicone self-host | 4-5 | ~3 GB | Postgres + ClickHouse + Redis |
+| **TokenJam** | 1 | ~80 MB | DuckDB (single file) |
+
+A `pip install tokenjam` followed by `tj serve` is one Python process, one DuckDB file under `~/.tj/`, no other infrastructure. That's not a critique of Langfuse's architecture choices. They're correct for the scale they target. It's that **for a one or two-person team, that shape is the entire bill.**
+
+## What it actually costs to run TokenJam: the math
+
+Pure-OSS, run locally, on hardware you already own. The line items:
+
+```
+LLM API spend            . Same as before TokenJam (we don't add or save calls)
+TokenJam binary          . $0
+DuckDB storage           . ~50-200 MB / month for an active Claude Code user
+                           (compressed; ~80% of payload is span attributes you opt into)
+Compute                  . Daemon idle ~30 MB RAM, ~0.1% CPU
+                           ~80 MB RAM under sustained ingest (200 spans/sec)
+Network egress           . $0 (alerts dispatch from your machine to Discord/ntfy/Telegram)
+Per-seat cost            . $0
+Per-trace cost           . $0
+Retention                . Unlimited (your disk, your choice)
+```
+
+For comparison, a five-person small team paying the LangSmith sticker price:
+
+```
+LangSmith Plus           . $39 × 5 = $195/month minimum
+Trace overage (modeled at 1M agent traces/month per CheckThat.ai)
+                         . ~$1,800/month additional at extended-trace rates
+Extended retention       . +$X/month per tier
+Effective monthly        . ~$2,000/month for ~1M trace volume
+```
+
+And the same team on Langfuse self-host:
+
+```
+Langfuse OSS license     . $0
+VPS/cloud running 6 containers, ClickHouse w/ persistent disk
+                         . $80-300/month depending on retention
+Ops time (you)           . Varies. Call it half a day per quarter steady-state
+Per-seat cost            . $0 (unlimited team, OSS tier)
+```
+
+The economic picture: cloud-LangSmith is *priced out* of the indie tier and *expensive but viable* for funded small teams. Langfuse self-host is *free with ops debt*. TokenJam is *free, local, and only fits the indie / small-team / autonomous-coding-agent use case*. Explicitly not a LangSmith replacement at enterprise scale.
+
+## The three things you give up going local
+
+Honesty section. Going local-first instead of LangSmith means giving up real things:
+
+1. **Annotation queues and shared eval datasets.** LangSmith has a polished workflow where engineers tag traces, build labeled eval sets, and run them as regression suites. TokenJam exports trajectories in the `openevals` format but doesn't ship the annotation UI. If you have a four-person engineering team doing structured prompt iteration with labeled regressions, LangSmith is the right tool. Use it.
+2. **Multi-team collaboration.** Cloud-shared trace views are genuinely useful when three engineers debug the same agent run together. TokenJam stores everything locally. There's no shared link. (Workaround: `tj export --otlp` re-forwards traces to a shared backend if you want one.)
+3. **Audit trails for enterprise compliance.** SOC2/HIPAA/etc. Usually want a centralized log. Local doesn't satisfy that without extra plumbing.
+
+If those three matter, you're not the audience for this post. And we're not selling against LangSmith on those features. We're selling on price, locality, and runtime-vs-postmortem to a different audience: the indie or two-person team running autonomous coding agents on their own credit card.
+
+## "Runtime safety" vs "post-hoc dashboard". The more important axis
+
+The pricing teardown is the eye-catching part. The deeper architectural point is that **LangSmith, Langfuse, Helicone, and Arize are all post-hoc dashboards.** They tell you, the next morning, how you spent the money. The phrase keeps coming up because [it's true](https://dev.to/magicrails/i-let-my-ai-agent-run-overnight-it-cost-437-dd7):
+
+> "Langfuse, Arize Phoenix, AgentOps, LangSmith. Excellent at showing you what happened, after it happened. They tell you, in retrospect, how you spent $437."
+
+TokenJam is shaped for a different question: *what's happening right now, and is it bad?* The 13-name alert taxonomy (`retry_loop`, `cost_budget_session`, `sensitive_action`, `drift_detected`, `schema_violation`, ...) fires synchronously during the agent run, dispatches to Discord / ntfy / Telegram / webhook within seconds, and tells you *which failure mode tripped*. Not just that something happened.
+
+That's not a feature LangSmith is bad at. It's a feature LangSmith doesn't try to do. The two are different shapes. If you're a five-person funded team running production agents for paying customers, you want both: a runtime safety layer like TokenJam and a post-hoc analytics layer like LangSmith or Langfuse. The mistake is thinking either one alone is the answer.
+
+## What this looks like at the CLI
+
+This is what 60 seconds with TokenJam looks like. Installable on the same laptop you're reading this on:
+
+```bash
+$ pip install tokenjam
+$ tj onboard --claude-code
+[tj] writing ~/.tj/config.toml (ingest_secret: f3a4...e91d)
+[tj] installing launchd daemon ~/Library/LaunchAgents/dev.tokenjam.daemon.plist
+[tj] wiring CLAUDE_CODE_ENABLE_TELEMETRY=1 into ~/.claude/settings.json
+[tj] wiring OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:7391
+[tj] registering MCP server (tj-observability)
+[tj] daemon started, listening on 127.0.0.1:7391
+[tj] open dashboard at http://127.0.0.1:7391/ (also: `tj ui`)
+
+$ tj demo run retry-loop
+[tj] injecting 47 synthetic spans across 6 simulated minutes...
+[tj] ALERT  type=retry_loop  severity=critical  session=demo-2026-05-15
+      4 identical tool calls in last 6 spans (read_file /etc/hosts)
+      estimated burn rate if uncapped: $14.20/hr
+      dispatched: discord, ntfy
+      cooldown: 300s
+```
+
+Compare to the LangSmith equivalent, which is "log in to app.smith.langchain.com, find the trace, notice the loop tomorrow morning." That's not a fair comparison on every axis, but on the *did-the-alert-fire-while-the-agent-was-running* axis, it's the whole game.
+
+## When to use what. Honest decision tree
+
+```
+Are you a 30-person engineering team with a prompt-management workflow,
+labeled eval datasets, and an annotation queue?
+  → LangSmith. Pay the bill. It's the right tool.
+
+Are you a 5-person startup running autonomous agents for paying customers,
+willing to operate Docker Compose + ClickHouse for free?
+  → Langfuse self-host. The ops debt is real but the OSS license is real.
+
+Are you a 2-person team running production agents and want zero ops?
+  → Langfuse Cloud, $29-$199/mo depending on scale.
+
+Are you an indie running Claude Code / Codex / a ralph loop on your
+laptop overnight and you want a Discord alert when something goes wrong?
+  → TokenJam. `pip install tokenjam`. No account.
+
+Are you running long-running autonomous agents (LangGraph, CrewAI,
+AutoGen) where the failure mode is "spends $X overnight and silently"?
+  → TokenJam, plus probably Langfuse self-host if you also want the
+    post-hoc dashboard.
+```
+
+We are explicitly *not* selling against LangSmith on the enterprise features. We are selling on:
+- Price (free)
+- Locality (your laptop, not their cloud)
+- Runtime-vs-postmortem (Discord ping while running, not a dashboard the next morning)
+- Opinionated safety taxonomy (13 named alert types, not "anomaly")
+
+## What we built TokenJam to be (and not to be)
+
+Two technical co-founders, zero users on day one. Pure OSS for the next 12 months. No hosted version (going SaaS turns us into a worse Langfuse). No per-seat pricing because there are no seats. The 13-alert taxonomy is wired. The MCP server lets Claude Code query its own observability mid-session. The DuckDB file is on your laptop. That's the whole product.
+
+If you're a small team paying $2,000/month for trace volume on LangSmith and the *autonomous agent* failure modes (retry loops, drift, surprise costs) are what's actually keeping you up at night. Try `pip install tokenjam` alongside it for a week. Worst case you've spent an evening. Best case you cancel a seat or two.
+
+```bash
+pip install tokenjam
+tj onboard --claude-code
+tj demo run retry-loop
+```
+
+- **GitHub:** [Metabuilder-Labs/tokenjam](https://github.com/Metabuilder-Labs/tokenjam)
+- **PyPI:** `pip install tokenjam`
+- **The launch post:** [I let Claude Code run overnight in --dangerously-skip-permissions](/blog/2026-05-15-overnight-claude-code-bill)
+
+## Common questions
+
+<FAQBlock items={[
+  {
+    question: "Where does the 10.7x TCO number come from?",
+    answer: "A 2025 audit by CheckThat.ai that modeled a reference team running ~1M agent traces per month. The audit factored in extended-trace overages (agents emit extended traces almost exclusively, at 9x the base rate), retention upgrades past the 14-day default, seat scaling, and the implicit cloud bill. Sticker price for the modeled team was the per-seat baseline; real cost was 10.7x that. Your team may be more or less than 10.7x depending on agent shape. The point is that the sticker is a bad estimator."
+  },
+  {
+    question: "Did the new LangSmith Engine / SmithDB launch change any of this?",
+    answer: "Yes for performance, no for pricing. SmithDB is a real engineering investment in long-running-agent telemetry, and it makes the platform faster at the workload that previously stressed it most. It does not change the per-seat tax, the extended-trace multiplier, or the 14-day base retention. Self-host is still Enterprise-only."
+  },
+  {
+    question: "Why not just use Langfuse self-host?",
+    answer: "It's a legitimate option and we say so above. The tradeoff is operational: it's Docker Compose with ClickHouse, Postgres, Redis, and S3-compatible blob storage. That's a real ops surface. Langfuse themselves published a 'simplify self-host' post in March 2026 acknowledging the friction. For a one or two-person indie, the TokenJam shape (single Python process, one DuckDB file) is the smaller footprint. For a small team that wants the polished dashboard and is willing to run six containers, Langfuse self-host is genuinely the right tool. We don't pretend otherwise."
+  },
+  {
+    question: "Is TokenJam actually open source, not 'source available'?",
+    answer: "Yes. MIT-licensed. No tier. No 'community edition.' No 'enterprise features behind a feature flag.' The whole tool is the whole tool. We don't have a hosted version to upsell into. There is no SaaS, there's no plan to build one in the next 12 months, and our explicit business-model bet is that monetization happens via a separate product built on top, not a tier of TokenJam itself."
+  },
+  {
+    question: "What about Helicone, Arize Phoenix, AgentOps, Comet Opik?",
+    answer: "All real tools. The post-hoc-dashboard critique applies to most of them. Helicone is a proxy, which adds 50-80ms per call and falls over when agents fire 200 calls/min. Arize Phoenix is excellent for notebook-based eval workflows; not what you reach for at 2am. AgentOps is Python-only and cloud-primary. Comet Opik has strong self-host. Specific comparison posts coming. This one was scoped to LangSmith because the new SmithDB launch was the news of the week."
+  },
+  {
+    question: "What about LangSmith Sandboxes for runaway agent prevention?",
+    answer: "Sandboxes constrain *what* the agent can do (the action space). Observability + alerts watch *while* it's doing it. They compose, but a sandbox alone doesn't catch retry loops that stay inside the action policy, doesn't catch behavioral drift, and doesn't catch surprise costs from policy-allowed operations. The right primitive is both: a sandbox *and* a runtime observer. TokenJam is the latter."
+  }
+]} />
+
+## Further reading
+
+- [I let Claude Code run overnight in --dangerously-skip-permissions](/blog/2026-05-15-overnight-claude-code-bill). The launch post, with real horror stories ($1,700, $47k, $800, $50).
+- [What is agent observability?](/blog/2026-05-09-agent-observability). Category background.
+- [OpenTelemetry for AI agents](/blog/2026-05-10-opentelemetry-for-ai-agents). Why OTel is the right substrate.
+- [LLM gateways](/blog/2026-05-11-llm-gateways). Adjacent category, related cost lever.

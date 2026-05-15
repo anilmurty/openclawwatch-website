@@ -1,0 +1,268 @@
+---
+title: "Watching Claude Code with OTel: what Cursor and /cost won't show you"
+description: "Claude Code ships a real OpenTelemetry pipe. Cursor doesn't. /cost is per-session and read-only. Here's what you can do with the wire, what each surface actually emits, and the failure modes none of the built-in views catch."
+author: "ansh-saxena"
+publishDate: 2026-05-25
+tags: ["claude-code", "cursor", "opentelemetry", "observability", "tokenjam"]
+pillar: "observability"
+image: "/blog/agent-observability.jpg"
+draft: false
+---
+
+import TLDR from '@/components/TLDR.astro';
+import Callout from '@/components/Callout.astro';
+import FAQBlock from '@/components/FAQBlock.astro';
+
+<TLDR>
+- **Claude Code emits OTel out of the box.** `CLAUDE_CODE_ENABLE_TELEMETRY=1` plus `OTEL_EXPORTER_OTLP_ENDPOINT=…` and a wire of LLM-call spans, tool-call spans, and session events lands at whatever collector you point it at. This is a real, documented integration. Not a wrapper.
+- **Cursor's agent has no equivalent at the same level of fidelity.** As of mid-2026 there's no `CURSOR_ENABLE_TELEMETRY=1` knob and no public OTLP endpoint configuration. You get logs, you get the in-product cost view, and you get whatever you can scrape from chat history.
+- **`/cost` is a meter, not a brake.** Per-session. Read-only. Doesn't persist across restarts. Doesn't page you. Doesn't know what a retry loop looks like. Useful for spot checks. Insufficient for anything autonomous.
+- **The actual reason to care:** the OTel wire has columns the in-product view doesn't. Per-tool cost. Per-session duration distributions. Tool-set similarity across runs. Sensitive-action patterns in arguments. The shape of a [$1,700 overnight ralph loop](https://github.com/anthropics/claude-code/issues/37686). None of that is in `/cost`.
+- This post is a Cursor-vs-Claude-Code comparison from the *observability dimension*. Which one lets you see what's actually happening, and what to do with the wire if you pick Claude Code.
+</TLDR>
+
+The Cursor-vs-Claude-Code framing is well-trodden ground at this point. There are excellent posts on the [Arize blog](https://arize.com/blog/claude-code-vs-cursor-a-power-users-playbook/) and others comparing them on autonomy, code quality, latency, UX. We don't need to redo that work.
+
+What none of those posts engage with is the *observability* dimension. Which of these two tools lets you actually see what the agent did at 2am? Which one will tell you it spent $437 before the invoice does? The answer is asymmetric enough that it's worth its own post.
+
+## The visibility surfaces, side by side
+
+Both tools have built-in surfaces and external surfaces. Built-in is what ships in the product. External is what you can wire up.
+
+| Surface | Claude Code | Cursor Agent |
+|---|---|---|
+| Per-session cost view | `/cost` (CLI), read-only | In-product usage tab |
+| Persistent local cost history | No (resets per session) | Partial (in product, not on disk) |
+| Real-time alert hooks | No (built-in) | No |
+| OTel telemetry pipe | **Yes** (`CLAUDE_CODE_ENABLE_TELEMETRY=1`) | **No public knob** |
+| Session JSON on disk | Yes (`~/.claude/projects/<hash>/*.jsonl`) | Limited, internal |
+| Tool-call attribution | Yes (`gen_ai.tool.*` attrs) | Internal logs only |
+| Behavioral drift detection | None (built-in) | None |
+| Budget cap | `--max-budget-usd` flag | In-product limit |
+
+The shape of the asymmetry is: Claude Code optimizes for terminal-native developers who'll wire their own infrastructure. Cursor optimizes for IDE-native developers who want the visibility surface inside the IDE. Both are coherent product choices. Only one gives you a wire to monitor from outside.
+
+## What `/cost` actually shows you
+
+The output of `/cost` inside Claude Code looks roughly like:
+
+```
+Total cost:    $0.43
+Total duration (API):  1m 12.4s
+Total duration (wall): 4m 28.1s
+Total code changes:    3 files, 47 lines added, 12 removed
+Usage by model:
+  - claude-opus-4-7   12 calls   in 11.3k   out  4.2k    $0.41
+  - claude-haiku-4    8 calls   in  2.1k   out  0.4k    $0.02
+```
+
+This is great for a spot-check while you're sitting at the terminal. It is missing four things that turn out to matter:
+
+1. **Persistence across sessions.** Close the terminal, open a new one, `/cost` resets. There is no "what did Claude Code cost me this week" surface.
+2. **Tool-level breakdown.** You see cost by model. You don't see cost by tool. The actual signal for retry loops is "this session called `bash` 200 times". And `/cost` doesn't surface tool call counts at all.
+3. **The wire.** It's a slash command in a TUI. You can't pipe it to anything. You can't aggregate it. You can't write an alert against it.
+4. **The 2am case.** You're asleep. Nobody is typing `/cost`. The brake pedal has to live somewhere other than your fingers.
+
+`/cost` is fine. It is also obviously not designed to be the only visibility surface for an autonomous agent.
+
+## What the OTel pipe actually emits
+
+When you set `CLAUDE_CODE_ENABLE_TELEMETRY=1` and point `OTEL_EXPORTER_OTLP_ENDPOINT` at any collector that speaks `http/protobuf`, Claude Code starts emitting OTel spans. The shape of the wire is roughly:
+
+```
+session start
+├── claude.session  (root span)
+│   ├── gen_ai.request    model=claude-opus-4-7
+│   │     attributes:
+│   │       gen_ai.system = "anthropic"
+│   │       gen_ai.request.model = "claude-opus-4-7"
+│   │       gen_ai.usage.input_tokens = 11420
+│   │       gen_ai.usage.output_tokens = 412
+│   │       gen_ai.response.model = "claude-opus-4-7"
+│   │       gen_ai.response.finish_reasons = ["tool_use"]
+│   ├── gen_ai.tool.call  tool=bash
+│   │     attributes:
+│   │       gen_ai.tool.name = "bash"
+│   │       gen_ai.tool.arguments = "{...}"   (if capture on)
+│   ├── gen_ai.tool.call  tool=read_file
+│   ├── ... (many more) ...
+│   └── claude.session.end
+└── ... Next session ...
+```
+
+This matches the [OTel GenAI semantic conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/) closely enough that off-the-shelf OTel viewers (Phoenix, Jaeger, your own collector) render the spans usefully. It also matches the conventions LangChain / LangGraph / CrewAI emit through their own auto-instrumentation, which means you can aggregate across agents from different frameworks on the same backend.
+
+A few things are worth flagging that the wire shape implies:
+
+- **Tool calls are first-class spans.** They aren't buried in log lines or attribute blobs. You can count them, filter them, group by tool name.
+- **Token counts come from the wire.** You don't have to estimate. The provider's tokenization is what ends up on the span attribute.
+- **Cost is not on the span.** Claude Code emits tokens; cost calculation is on you (or on the collector). This is actually the right separation. Pricing changes; tokens don't.
+- **Session boundaries are explicit.** A `claude.session` span wraps the whole run. Closing the parent span emits the end-of-session event, which is what we hook for `cost_budget_session` and `drift_detected` alerts.
+
+This is enough to build everything `/cost` shows you, plus everything `/cost` doesn't show you. The wire is the API.
+
+## What Cursor's surface looks like by comparison
+
+To be fair to Cursor: it has a usage view inside the IDE that gives you a cost-per-session breakdown that's roughly as informative as `/cost`. The settings page exposes a budget cap that does the same thing as `--max-budget-usd`. For users whose workflow lives inside Cursor and who never run the agent unattended, these surfaces are appropriate to the product.
+
+What's missing is the *external* surface. There's no documented environment variable that says "emit my agent's tool calls to this OTLP endpoint." There's no per-tool span breakdown you can scrape. There's no analog to the session JSON on disk that you can pipe to a script.
+
+Concretely, the things you can do with Claude Code that you can't easily do with Cursor:
+
+1. **Run a separate process that watches every span in real time.** Possible with Claude Code's OTel pipe. Not exposed for Cursor.
+2. **Compute cost across all sessions in a window.** Possible with either, but only Claude Code makes the raw data trivially scriptable on disk.
+3. **Detect retry loops automatically.** Both could in principle. Claude Code's wire makes it ~50 lines of Python. Cursor would require reverse-engineering internal log formats.
+4. **Fire a Discord alert at 2am when a tool call has been repeating for 6 spans.** Possible with Claude Code via any OTel-aware tool. Not possible with Cursor's exposed surfaces.
+5. **Build a behavioral baseline from the last N sessions of the same agent.** Possible with Claude Code (and how we ship [drift detection](/blog/2026-05-17-behavioral-drift-detection)). Requires scraping internals on Cursor.
+
+This isn't a Cursor critique. It's a recognition that IDE-embedded agents and terminal agents have different observability surface areas. If your workflow is unattended overnight runs, terminal agents are where the wire actually exists.
+
+## What the wire catches that `/cost` doesn't
+
+Here's the specific value the OTel pipe provides over `/cost`, mapped to real horror-story shapes.
+
+**The $1,700 overnight ralph loop.** [GH #37686](https://github.com/anthropics/claude-code/issues/37686): "I tried a ralph loop overnight for the first time and woke up to $1700 worth of charges." The shape: the same tool call repeated hundreds of times. `/cost` shows totals; doesn't show the loop structure. The OTel wire emits each tool-call as a span. So a watcher running against the wire sees the same tool name + args hash repeating in window N and fires.
+
+**The $50/day silent generation.** [r/AI_Agents](https://www.reddit.com/r/AI_Agents/comments/1rzd5pn/my_ai_agents_burned_50day_doing_nothing_so_i/): "Logs said 'done.' Vault was empty." The shape: lots of output tokens, no filesystem writes, no exit-code-0 tool returns. `/cost` reports the spend; doesn't separate productive from unproductive spans. The OTel wire makes the join trivial. Span attributes tell you which spans had downstream side effects, you alert when the ratio collapses.
+
+**The 233 ghost subagents.** [r/ClaudeAI](https://www.reddit.com/r/ClaudeAI/comments/1rwdahm/i_analyzed_77_claude_code_sessions_233_ghost.json): "233 background agents I never asked for consumed 23% of my agent token spend." The shape: subsessions spawning subsessions spawning subsessions. `/cost` shows you the bottom-line number; doesn't show you the tree. The OTel wire emits parent-child span relationships. Count distinct child sessions per parent and you see the fan-out the in-product view hides.
+
+**The post-compaction rule collapse.** [GH #40801](https://github.com/anthropics/claude-code/issues/40801): "Compliance starts at 100% in the first 30 minutes → drops to 50–60% after first compaction → hits 20% after second compaction." The shape: the agent is statistically a different agent after compaction events. `/cost` is a single number; doesn't have any cross-session shape. The OTel wire gives you per-session statistics (token totals, durations, tool distributions) you can build a baseline from.
+
+**Claude Code's own cost estimate being wrong.** [GH #34972](https://github.com/anthropics/claude-code/issues/34972): "Claude Code (Opus) repeatedly provided incorrect cost estimates… resulting in a spend of ~$1,700 against an estimate of ~$300." The agent is unreliable about its own runtime. `/cost` shows you what the agent reports. The OTel wire has the raw token counts, so you can compute the cost independently from the agent's self-report. The discrepancy is exactly the signal you want.
+
+These are five distinct failure shapes. None of them are observable from `/cost` alone. All five are observable from the OTel wire with off-the-shelf rules.
+
+## The minimum collector setup
+
+The lightest path from `CLAUDE_CODE_ENABLE_TELEMETRY=1` to "alerts in Discord while it's happening" is roughly:
+
+```bash
+# 1. Turn on the wire
+export CLAUDE_CODE_ENABLE_TELEMETRY=1
+export OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:7391
+export OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+
+# 2. Run a collector that does something with the spans.
+#    Options, in order of operational tax:
+#    - Local CLI daemon (tj / claude-usage variants): one binary
+#    - Self-hosted Langfuse: Docker Compose + ClickHouse
+#    - Hosted dashboard (LangSmith, Langfuse Cloud): cloud account + bearer token
+
+# 3. Wire alerts against the span stream
+#    - retry_loop: 4 identical gen_ai.tool.call spans in last 6
+#    - cost_budget_session: accumulated cost > threshold
+#    - sensitive_action: tool args match dangerous-pattern set
+#    - drift_detected: session stats outside ±3σ from baseline
+
+# 4. Test the wire actually reaches your phone
+#    Fire a synthetic alert; confirm Discord push notification arrives
+```
+
+The first three lines are the entire Claude Code-side change. Everything else is downstream of the wire, and the wire format is the same for any OTel-aware backend.
+
+If you want the shortest-possible-distance version we ship as `tj`:
+
+```bash
+pip install tokenjam
+tj onboard --claude-code      # writes config, daemonizes, sets the env vars
+tj demo run retry-loop        # synthetic alert in ~60 seconds
+```
+
+That writes `~/.tj/config.toml` with a random ingest secret, installs a launchd/systemd daemon, sets `CLAUDE_CODE_ENABLE_TELEMETRY=1` and the OTLP endpoint in your Claude Code settings, and registers an MCP server so Claude Code can query its own observability mid-run.
+
+If you'd rather assemble it from parts. Langfuse self-hosted, Phoenix in a notebook, a custom OTel collector. Go for it. The wire format is the same, which is most of the point.
+
+## "But Cursor has been ignoring this on purpose"
+
+A reasonable response to all of the above: maybe Cursor's choice not to expose an OTel wire is *correct* for their audience. If you're an IDE-embedded developer who never runs the agent unattended, the in-product view is sufficient and exposing an OTLP endpoint is operational complexity you don't need.
+
+That's plausible. We're not arguing Cursor should ship OTel; we're arguing that if your workflow is unattended Claude Code, Codex CLI, or any ralph/`--dangerously-skip-permissions` loop, the OTel wire is the thing that makes the unattended part safe. The asymmetry is workflow-dependent, not value-dependent.
+
+The corollary worth saying out loud: if you're using Cursor for interactive coding and Claude Code for unattended work, the observability story is *only* asymmetric on the unattended side. Cursor's in-product view is plausibly enough for the interactive lane. The wire matters where the human isn't there.
+
+## What Codex CLI looks like in this picture
+
+Briefly, because it comes up: Codex CLI emits OTel similar to Claude Code. The variable names are slightly different (`CODEX_ENABLE_TELEMETRY=1` for the analogous toggle, last we checked), the span schema is OTel GenAI-ish but with provider-specific extensions, and `tj onboard --codex` handles the bootstrap the same way it does for Claude Code. If you're running both, the same collector handles both wires.
+
+LangChain, LangGraph, CrewAI, AutoGen. Same story. The auto-instrumentation in the standard Python OTel libraries emits `gen_ai.*` attributes. Anything OTLP-compliant lands on the same backend.
+
+## The honest limitations
+
+Three caveats worth being clear about.
+
+**1. Tool-output capture is opt-in.** By default `gen_ai.tool.output` is *not* on the span (in Claude Code's emission and in TokenJam's default capture config). This is intentional for privacy / disk-cost reasons. It does mean that some forensics workflows (schema validation, openevals export) need an explicit flip. We're [tracking the right default](https://github.com/Metabuilder-Labs/tokenjam). It's a real open question.
+
+**2. The wire has gaps.** Not every OTel GenAI semconv attribute is emitted by every agent. `gen_ai.response.finish_reasons` is reliable on Claude Code; `gen_ai.usage.cache_read_input_tokens` is patchier. If you're computing cost off the wire, you have to handle missing attributes gracefully.
+
+**3. Sleeping laptops don't emit spans.** If the machine running Claude Code is asleep, nothing on the machine is running, including your monitor. Run unattended agents on a machine that stays awake. `caffeinate -i` on macOS, the equivalent suspend-inhibit on Linux, or just a cloud VM. The wire only helps if the wire is live.
+
+These are not deal-breakers. They are the kinds of things that look obvious in hindsight and bite people in real time.
+
+## The wider point
+
+Claude Code shipped an OTel pipe and it is, as of mid-2026, the single most important thing the product did for unattended-agent safety. It turned the agent from a black box into something you can build infrastructure around. The five failure shapes the community keeps publishing. Overnight retry loops, silent generations, ghost subagents, post-compaction drift, agent-self-report discrepancies. All became externally observable in one move.
+
+Cursor hasn't made that move. That's a workflow choice, and it's defensible for IDE-embedded interactive use. It also means that if your workflow involves the agent running while you're not looking, the answer to "how do I monitor this" is meaningfully different depending on which tool you picked.
+
+`/cost` is a meter. The OTel wire is the wire. They are not the same thing. The community has been confusing them for long enough that the confusion has cost real money. The fix isn't a better dashboard. It's a better understanding of what each surface actually emits.
+
+```bash
+export CLAUDE_CODE_ENABLE_TELEMETRY=1
+pip install tokenjam
+tj onboard --claude-code
+```
+
+- **GitHub:** [Metabuilder-Labs/tokenjam](https://github.com/Metabuilder-Labs/tokenjam)
+- **The launch post:** [I let Claude Code run overnight in --dangerously-skip-permissions](/blog/2026-05-15-overnight-claude-code-bill)
+- **How-to:** [How to monitor Claude Code](/blog/2026-05-15-how-to-monitor-claude-code)
+- **The taxonomy:** [13 named alerts beat 'anomaly detected'](/blog/2026-05-19-agent-failure-taxonomy)
+
+## Common questions
+
+<FAQBlock items={[
+  {
+    question: "Does Cursor have any equivalent to CLAUDE_CODE_ENABLE_TELEMETRY?",
+    answer: "Not at the level Claude Code does, as of mid-2026. Cursor has an in-product usage view and a budget cap setting, but there's no documented public knob to redirect tool-call and LLM-call spans to an arbitrary OTLP endpoint. If you need real-time external observability on an unattended autonomous loop, that's a meaningful difference between the two tools."
+  },
+  {
+    question: "Can I get the same data from Claude Code's session JSON files instead?",
+    answer: "Partially. Claude Code writes session transcripts to ~/.claude/projects/<hash>/*.jsonl. You can parse those for cost and tool-call attribution after the fact. The OTel wire gives you the same data in real time, which is the difference between forensics (the next morning, after the bill arrived) and alerting (now, while it's still fixable). Most people end up using both. The JSONL files for post-hoc analysis and the OTel wire for runtime alerts."
+  },
+  {
+    question: "What happens to the wire when I'm on a flight without internet?",
+    answer: "If your collector is local (TokenJam, claude-usage, Phoenix-in-notebook), nothing changes. The spans flow to the local DuckDB or SQLite. If your collector is a cloud dashboard (LangSmith, Langfuse Cloud, Helicone) and you're offline, spans buffer or drop depending on the SDK's retry logic. This is the reason we ship local-first: the wire and the storage live on your machine, so the network can be anything."
+  },
+  {
+    question: "Does Cursor support Claude Opus and other models the same way Claude Code does?",
+    answer: "Yes. Both Cursor and Claude Code can use Anthropic, OpenAI, and other provider models. The model choice isn't the asymmetry. The asymmetry is observability surface area: Claude Code exposes OTel spans for tool calls and LLM calls; Cursor exposes the usage view in the IDE. Same models, different visibility surfaces around them."
+  },
+  {
+    question: "Is the OTel wire the same as what LangSmith / Langfuse / Helicone consume?",
+    answer: "Yes. They all speak OTLP. You can point Claude Code's OTLP endpoint at LangSmith's ingestion URL, at a Langfuse instance, at Helicone's gateway, at Phoenix, or at TokenJam. Same wire format. The downstream UX, cost, and alerting capabilities differ. But the integration on the Claude Code side is identical. Pick the collector based on what you need to do with the spans, not based on the wire."
+  },
+  {
+    question: "What's the privacy posture on the wire?",
+    answer: "Out of the box, Claude Code emits span metadata (model names, token counts, tool names) but not tool inputs/outputs unless you explicitly enable content capture. Whether the *content* of tool inputs and outputs lands on the wire depends on the capture configuration of your downstream collector. If you're privacy-sensitive, local-first collectors (DuckDB on your laptop) are the lowest-exposure choice. Nothing leaves the machine."
+  }
+]} />
+
+## Sources
+
+- [Claude Code GH #37686](https://github.com/anthropics/claude-code/issues/37686). $1,700 overnight ralph loop.
+- [Claude Code GH #34972](https://github.com/anthropics/claude-code/issues/34972). Agent's own cost estimate vs actual.
+- [Claude Code GH #40801](https://github.com/anthropics/claude-code/issues/40801). Post-compaction rule degradation.
+- [r/nocode: $800 overnight retry loop](https://www.reddit.com/r/nocode/comments/1s8h1v5/my_ai_agent_silently_burned_800_in_api_calls/).
+- [r/AI_Agents: $50/day silent generation](https://www.reddit.com/r/AI_Agents/comments/1rzd5pn/my_ai_agents_burned_50day_doing_nothing_so_i/).
+- [r/ClaudeAI: 233 ghost subagents](https://www.reddit.com/r/ClaudeAI/comments/1rwdahm/i_analyzed_77_claude_code_sessions_233_ghost.json).
+- [Arize: Claude Code vs Cursor. A power user's playbook](https://arize.com/blog/claude-code-vs-cursor-a-power-users-playbook/).
+- [OpenTelemetry GenAI semantic conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/).
+- [`claude-usage` (ryoppippi/ccusage)](https://github.com/ryoppippi/ccusage). The 1.5k-star local cost dashboard.
+
+## Further reading
+
+- [How to monitor Claude Code: a practical guide](/blog/2026-05-15-how-to-monitor-claude-code).
+- [The taxonomy of agent failure: 13 named alerts](/blog/2026-05-19-agent-failure-taxonomy).
+- [OpenTelemetry for AI agents](/blog/2026-05-10-opentelemetry-for-ai-agents).
+- [Behavioral drift detection](/blog/2026-05-17-behavioral-drift-detection).
+- [I let Claude Code run overnight in --dangerously-skip-permissions](/blog/2026-05-15-overnight-claude-code-bill).
